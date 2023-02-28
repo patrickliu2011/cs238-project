@@ -1,0 +1,17 @@
+name: cs238_project
+channels:
+  - pytorch
+  - anaconda
+  - defaults
+  - conda-forge
+dependencies:
+  - ipykernel
+  - pip
+  - python=3.10.9
+  - pytorch
+  - pip:
+      - gymnasium
+      - matplotlib
+      - numpy
+      - pandas
+      - tqdm

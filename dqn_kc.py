@@ -75,6 +75,7 @@ import torch.nn.functional as F
 
 # env = gym.make("CartPole-v1")
 env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True)
+# env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode='human')
 
 # set up matplotlib
 is_ipython = 'inline' in matplotlib.get_backend()
@@ -215,7 +216,7 @@ class DQN(nn.Module):
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
     def forward(self, x) -> torch.Tensor:
-        print(f'shape for forward: {x.shape}')
+        # print(f'shape for forward: {x.shape}')
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
         return self.layer3(x)
@@ -265,8 +266,8 @@ ob_space = env.observation_space.n
 # reset(seed=42)?
 state, info = env.reset()
 # state = F.one_hot(torch.tensor(state, device=device), num_classes=ob_space)
-print(f' ORIGINAL STATE: {state}')
-print(info)
+# print(f' ORIGINAL STATE: {state}')
+# print(info)
 n_observations = ob_space if isinstance(state, int) else len(state)
 policy_net = DQN(n_observations, n_actions).to(device)
 target_net = DQN(n_observations, n_actions).to(device)
@@ -279,30 +280,30 @@ memory = ReplayMemory(10000)
 steps_done = 0
 
 
-def select_action(state, one_hot=True):
+def select_action(state, greedy=False, one_hot=True):
     global steps_done
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
-    if sample > eps_threshold:
+    if sample > eps_threshold or greedy:
         with torch.no_grad():
 
             # t.max(1) will return the largest column value of each row.
             # second column on max result is index of where max element was
             # found, so we pick action with the larger expected reward.
-            print(f'state B4 ONE_HOT: {state}')
+            # print(f'state B4 ONE_HOT: {state}')
             # t = torch.tensor([state], dtype=torch.int, device=device)
             # t = torch.tensor(state, device=device)
             # print(f't: {t}')
             # F.one_hot(t, num_classes=ob_space)
             if one_hot:
                 state = F.one_hot(torch.tensor(state, device=device), num_classes=ob_space).unsqueeze(0).to(dtype=torch.float32)
-            print(f'state: {state}')
+            # print(f'state: {state}')
             #NEW: can directly return action with max value
             # print(policy_net(state))
             # print(policy_net(state).argmax().view(1, 1))
-            print(policy_net(state).argmax().view(1, 1))
+            # print(policy_net(state).argmax().view(1, 1))
             return policy_net(state).argmax().view(1, 1)
             # return policy_net(state).max(1)[1].view(1, 1)
     else:
@@ -366,11 +367,11 @@ def optimize_model():
 
     batch_next_state = tuple(F.one_hot(torch.tensor(s), num_classes=ob_space) if s is not None else None for s in batch.next_state)
     batch_state = tuple(F.one_hot(torch.tensor(s), num_classes=ob_space) if s is not None else None for s in batch.state)
-    print(batch_next_state)
-    print("BATCH NEXT STATE")
-    print(batch.state)
-    print("BATCH ACTION")
-    print(batch.action)
+    # print(batch_next_state)
+    # print("BATCH NEXT STATE")
+    # print(batch.state)
+    # print("BATCH ACTION")
+    # print(batch.action)
     # Compute a mask of non-final states and concatenate the batch elements
     # (a final state would've been the one after which simulation ended)
     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
@@ -381,12 +382,13 @@ def optimize_model():
     state_batch = torch.cat(batch_state).to(dtype=torch.float32)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
+    # print(reward_batch.sum())
 
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
     state_action_values = policy_net(state_batch).gather(1, action_batch)
-    print(f'DTYPE: {state_action_values.dtype}')
+    # print(f'DTYPE: {state_action_values.dtype}')
     # Compute V(s_{t+1}) for all next states.
     # Expected values of actions for non_final_next_states are computed based
     # on the "older" target_net; selecting their best reward with max(1)[0].
@@ -430,17 +432,18 @@ if torch.cuda.is_available():
     num_episodes = 600
 else:
     num_episodes = 50
+    num_episodes = 600
 
 for i_episode in range(num_episodes):
     # Initialize the environment and get it's state
     state, info = env.reset()
     state = torch.tensor([state], device=device)
     # state = F.one_hot(torch.tensor(state, device=device), num_classes=ob_space).unsqueeze(0)
-    print(f'last state: {state}')
+    # print(f'last state: {state}')
     # state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
     for t in count():
         action = select_action(state)
-        print(f'action: {action}')
+        # print(f'action: {action}')
         observation, reward, terminated, truncated, _ = env.step(action.item())
         reward = torch.tensor([reward], device=device)
         done = terminated or truncated
@@ -451,7 +454,7 @@ for i_episode in range(num_episodes):
             # next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
             # next_state = torch.tensor(observation, device=device).unsqueeze(0).item()
             next_state = torch.tensor(observation, device=device).unsqueeze(0)
-            print(f'next state: {next_state}')
+            # print(f'next state: {next_state}')
         # Store the transition in memory
         memory.push(state, action, next_state, reward)
 
@@ -470,7 +473,8 @@ for i_episode in range(num_episodes):
         target_net.load_state_dict(target_net_state_dict)
 
         if done:
-            episode_durations.append(t + 1)
+            # episode_durations.append(t + 1)
+            episode_durations.append(reward)
             plot_durations()
             break
 
@@ -491,3 +495,38 @@ plt.show()
 # new policy. The "older" target_net is also used in optimization to compute the
 # expected Q values. A soft update of its weights are performed at every step.
 #
+
+# RENDER THE END
+env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode='human')
+
+for i_episode in range(50):
+    # Initialize the environment and get it's state
+    state, info = env.reset()
+    state = torch.tensor([state], device=device)
+    # state = F.one_hot(torch.tensor(state, device=device), num_classes=ob_space).unsqueeze(0)
+    # print(f'last state: {state}')
+    # state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+    for t in count():
+        action = select_action(state, greedy=True)
+        # print(f'action: {action}')
+        observation, reward, terminated, truncated, _ = env.step(action.item())
+        reward = torch.tensor([reward], device=device)
+        done = terminated or truncated
+
+        if terminated:
+            next_state = None
+        else:
+            # next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
+            # next_state = torch.tensor(observation, device=device).unsqueeze(0).item()
+            next_state = torch.tensor(observation, device=device).unsqueeze(0)
+            # print(f'next state: {next_state}')
+        # Store the transition in memory
+        memory.push(state, action, next_state, reward)
+
+        # Move to the next state
+        state = next_state
+
+        # Perform one step of the optimization (on the policy network)
+
+        if done:
+            break

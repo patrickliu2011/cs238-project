@@ -74,7 +74,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 # env = gym.make("CartPole-v1")
-env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True)
+env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False)
 # env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode='human')
 
 # set up matplotlib
@@ -298,7 +298,8 @@ def select_action(state, greedy=False, one_hot=True):
             # print(f't: {t}')
             # F.one_hot(t, num_classes=ob_space)
             if one_hot:
-                state = F.one_hot(torch.tensor(state, device=device), num_classes=ob_space).unsqueeze(0).to(dtype=torch.float32)
+                # state = F.one_hot(torch.tensor(state, device=device), num_classes=ob_space).unsqueeze(0).to(dtype=torch.float32)
+                state = F.one_hot(state, num_classes=ob_space).unsqueeze(0).to(dtype=torch.float32, device=device)
             # print(f'state: {state}')
             #NEW: can directly return action with max value
             # print(policy_net(state))
@@ -365,8 +366,11 @@ def optimize_model():
     # to Transition of batch-arrays.
     batch = Transition(*zip(*transitions))
 
-    batch_next_state = tuple(F.one_hot(torch.tensor(s), num_classes=ob_space) if s is not None else None for s in batch.next_state)
-    batch_state = tuple(F.one_hot(torch.tensor(s), num_classes=ob_space) if s is not None else None for s in batch.state)
+    # print(batch.next_state)
+    # batch_next_state = tuple(F.one_hot(torch.tensor(s), num_classes=ob_space) if s is not None else None for s in batch.next_state)
+    batch_next_state = tuple(F.one_hot(s, num_classes=ob_space) if s is not None else None for s in batch.next_state)
+    # batch_state = tuple(F.one_hot(torch.tensor(s), num_classes=ob_space) if s is not None else None for s in batch.state)
+    batch_state = tuple(F.one_hot(s, num_classes=ob_space) if s is not None else None for s in batch.state)
     # print(batch_next_state)
     # print("BATCH NEXT STATE")
     # print(batch.state)
@@ -497,7 +501,7 @@ plt.show()
 #
 
 # RENDER THE END
-env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode='human')
+env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=False, render_mode='human')
 
 for i_episode in range(50):
     # Initialize the environment and get it's state

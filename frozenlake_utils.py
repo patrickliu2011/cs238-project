@@ -144,10 +144,15 @@ def tile_id_to_onehot(tile_id: int, env_data: env_dtype):
     """Convert tile id to one-hot vector."""
     return np.eye(len(env_data["tile_types"]))[tile_id]
 
-def state_to_observation(state: int, env_data: env_dtype):
+def state_to_observation(state: int, env_data: env_dtype, mode="neighbor"):
     """Convert state (position index) to observation (numpy array) for an agent."""
     position = np.array(pos2coord(state, env_data))
-    neighbors = get_tile_neighbors(state, env_data, radius=1)
+    if mode == "neighbor":
+        neighbors = get_tile_neighbors(state, env_data, radius=1)
+    elif mode == "map":
+        neighbors = env_data["map"]
+    else:
+        assert False, "Unrecognized state to observation conversion mode"
     neighbors = tile_id_to_onehot(neighbors.flatten(), env_data)
     observation = np.concatenate([position, neighbors.flatten()])
     return observation

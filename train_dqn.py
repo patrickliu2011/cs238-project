@@ -25,6 +25,8 @@ from argparse import ArgumentParser
 def main(args):
     env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
     env_data = get_env_data(env)
+    env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
+    
 
     # set up matplotlib
     is_ipython = 'inline' in matplotlib.get_backend()
@@ -87,7 +89,8 @@ def main(args):
     # reset(seed=42)?
     state, info = env.reset()
     env_data = get_env_data(env)
-    state = torch.from_numpy(state_to_observation(state, env_data)).float()
+    env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
+    state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float()
     n_observations = ob_space if isinstance(state, int) else len(state)
     policy_net = DQN(n_observations, n_actions).to(device)
     target_net = DQN(n_observations, n_actions).to(device)
@@ -185,12 +188,13 @@ def main(args):
         env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
         state, info = env.reset()
         env_data = get_env_data(env)
-        state = torch.from_numpy(state_to_observation(state, env_data)).float().unsqueeze(0)
+        env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
+        state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
         for t in count():
             action = select_action(state)
             # print(f'action: {action}')
             observation, reward, terminated, truncated, _ = env.step(action.item())
-            observation = torch.from_numpy(state_to_observation(observation, env_data)).float()
+            observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated
 
@@ -248,11 +252,12 @@ def main(args):
         env = get_env(args.size, show=True, slip=args.slip, rewards=args.reward_overrides)
         state, info = env.reset()
         env_data = get_env_data(env)
-        state = torch.from_numpy(state_to_observation(state, env_data)).float().unsqueeze(0)
+        env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
+        state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
         for t in count():
             action = select_action(state, greedy=True)
             observation, reward, terminated, truncated, _ = env.step(action.item())
-            observation = torch.from_numpy(state_to_observation(observation, env_data)).float()
+            observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
             reward = torch.tensor([reward], device=device)
             done = terminated or truncated
 
@@ -299,6 +304,10 @@ if __name__ == "__main__":
                         help="Learning rate")
     parser.add_argument("--device", type=str, default="cuda",
                         help="Device to train on (cpu or cuda)")
+    parser.add_argument("--ratio-hide", type=float, default=0,
+                        help="Ratio of holes to hide")
+    parser.add_argument("--state-type", type=str, default="neighbor",
+                        help="Type of state representation to use.")
 
     args = parser.parse_args()
     reward_overrides = {}

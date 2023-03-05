@@ -1,8 +1,58 @@
 import numpy as np
 import typing
 
+import gymnasium as gym
+from gymnasium.envs.toy_text.frozen_lake import generate_random_map
+
 env_dtype = typing.Dict[str, typing.Any]
 tile_dtype = str
+
+def get_env(size: int = 4, 
+            show: bool = False, 
+            slip: bool = True,
+            rewards: typing.Dict[tile_dtype, float] = {}):
+    """
+    Get instance of environment with random hole positions.
+
+    Parameters:
+    -----------
+    size: int
+        Side length of environment
+    show: bool
+        Create the environment in a render-able format
+    slip: bool
+        Allow slipping in the environment
+    rewards: typing.Dict
+        A dictionary of tile types to override with a different reward.
+        tile type -> reward value
+
+    Returns:
+    --------
+    env: gym.Env
+        Instance of the environment
+    """
+    env_kwargs = {
+        "desc": generate_random_map(size=size), 
+        "is_slippery": slip,
+    }
+    if show:
+        env_kwargs["render_mode"] = "human"
+    env = gym.make('FrozenLake-v1', **env_kwargs)
+    map = env.unwrapped.desc.astype(str)
+
+    # Update transition rewards
+    for pos in env.unwrapped.P:
+        for act in env.unwrapped.P[pos]:
+            transitions = []
+            for prob, next_pos, reward, end in env.unwrapped.P[pos][act]:
+                next_tile = map[np.unravel_index(next_pos, map.shape)]
+                if next_tile in rewards: 
+                    reward = float(rewards[next_tile])
+                transitions.append((prob, next_pos, reward, end))
+            env.unwrapped.P[pos][act] = transitions
+
+    return env
+    
 
 def get_env_data(env, pad_tile: tile_dtype = "B", overrides: typing.Dict = {}):
     """
@@ -14,7 +64,7 @@ def get_env_data(env, pad_tile: tile_dtype = "B", overrides: typing.Dict = {}):
         The environment or map to get data from.
     pad_tile: tile_dtype
         The tile to pad the map with.
-    overrides: dict
+    overrides: typing.Dict
         A dictionary of tiles to override with a different tile type.
         tile coordinates -> tile type
 

@@ -11,6 +11,7 @@ import math
 import random
 import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd
 from collections import namedtuple, deque
 from itertools import count
 
@@ -230,24 +231,50 @@ def main(args):
     plt.ioff()
     plt.show()
 
-    ######################################################################
-    # Here is the diagram that illustrates the overall resulting data flow.
-    #
-    # .. figure:: /_static/img/reinforcement_learning_diagram.jpg
-    #
-    # Actions are chosen either randomly or based on a policy, getting the next
-    # step sample from the gym environment. We record the results in the
-    # replay memory and also run optimization step on every iteration.
-    # Optimization picks a random batch from the replay memory to do training of the
-    # new policy. The "older" target_net is also used in optimization to compute the
-    # expected Q values. A soft update of its weights are performed at every step.
-    #
+    env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
+    eval_results = []
+    for i_episode in range(args.eval_episodes):
+        # Initialize the environment and get it's state
+        env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
+        state, info = env.reset()
+        env_data = get_env_data(env)
+        env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
+        state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
+        episode_rewards = []
+        duration = 0
+        for t in count():
+            action = select_action(state, greedy=True)
+            observation, reward, terminated, truncated, _ = env.step(action.item())
+            observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
+            episode_rewards.append(reward)
+            reward = torch.tensor([reward], device=device)
+            done = terminated or truncated
 
-    # RENDER THE END
-    # env = gym.make('FrozenLake-v1', desc=None, map_name="4x4", is_slippery=True, render_mode='human')
+            if terminated:
+                next_state = None
+            else:
+                next_state = torch.tensor(observation, device=device).unsqueeze(0)
+            # Store the transition in memory
+            memory.push(state, action, next_state, reward)
+
+            # Move to the next state
+            state = next_state
+
+            if done:
+                duration = t + 1
+                break
+        eval_results.append({
+            "reward": sum(episode_rewards),
+            "succeeded": episode_rewards[-1] > 0,
+            "duration": duration,
+        })
+    eval_results = pd.DataFrame(eval_results)
+    print("Evaluation results:")
+    print(eval_results.mean(axis=0))
+
+    # Show model on a number of episodes
     env = get_env(args.size, show=True, slip=args.slip, rewards=args.reward_overrides)
-
-    for i_episode in range(50):
+    for i_episode in range(args.show_episodes):
         # Initialize the environment and get it's state
         env = get_env(args.size, show=True, slip=args.slip, rewards=args.reward_overrides)
         state, info = env.reset()
@@ -284,8 +311,10 @@ if __name__ == "__main__":
                         help="Render environment while training")
     parser.add_argument("--num-episodes", type=int, default=600,
                         help="Number of episodes to train for.")
-    parser.add_argument("--eval-episodes", type=int, default=50,
+    parser.add_argument("--eval-episodes", type=int, default=100,
                         help="Number of episodes to eval for.")
+    parser.add_argument("--show-episodes", type=int, default=50,
+                        help="Number of episodes to display for.")
     parser.add_argument("--reward-overrides", type=str, nargs="*", default=[],
                         help="List of tile types to override rewards for, formatted as \"H:-1 F:-0.01\"")
     parser.add_argument("--batch-size", type=int, default=128,

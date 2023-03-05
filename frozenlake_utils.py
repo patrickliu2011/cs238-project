@@ -10,7 +10,9 @@ tile_dtype = str
 def get_env(size: int = 4, 
             show: bool = False, 
             slip: bool = True,
-            rewards: typing.Dict[tile_dtype, float] = {}):
+            max_episode_steps: int = 100,
+            rewards: typing.Dict[tile_dtype, float] = {}
+            ):
     """
     Get instance of environment with random hole positions.
 
@@ -22,6 +24,8 @@ def get_env(size: int = 4,
         Create the environment in a render-able format
     slip: bool
         Allow slipping in the environment
+    max_episode_steps: int
+        Maximum number of steps allowed per episode
     rewards: typing.Dict
         A dictionary of tile types to override with a different reward.
         tile type -> reward value

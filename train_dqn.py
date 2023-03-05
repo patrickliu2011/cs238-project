@@ -25,11 +25,16 @@ import torch.nn.functional as F
 from frozenlake_utils import *
 
 def main(args):
-    env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
+    env_kwargs = {
+        "show": args.show_train, 
+        "slip": args.slip, 
+        "max_episode_steps": args.max_episode_steps,
+        "rewards": args.reward_overrides,
+    }
+    env = get_env(args.size, **env_kwargs)
     env_data = get_env_data(env)
     env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
     
-
     # set up matplotlib
     is_ipython = 'inline' in matplotlib.get_backend()
     if is_ipython:
@@ -192,10 +197,10 @@ def main(args):
 
     for i_episode in tqdm(range(args.num_episodes)):
         # Initialize the environment and get it's state
-        env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
-        state, info = env.reset()
+        env = get_env(args.size, **env_kwargs)
         env_data = get_env_data(env)
         env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
+        state, info = env.reset()
         state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
         for t in count():
             action = select_action(state)
@@ -237,15 +242,14 @@ def main(args):
     plt.ioff()
     plt.show()
 
-    env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
     eval_results = []
     for i_episode in tqdm(range(args.eval_episodes)):
         # Initialize the environment and get it's state
-        env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
-        state, info = env.reset()
+        env = get_env(args.size, **env_kwargs)
         env_data = get_env_data(env)
         env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
         state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
+        state, info = env.reset()
         episode_rewards = []
         duration = 0
         for t in count():
@@ -279,13 +283,12 @@ def main(args):
     print(eval_results.mean(axis=0))
 
     # Show model on a number of episodes
-    env = get_env(args.size, show=True, slip=args.slip, rewards=args.reward_overrides)
     for i_episode in tqdm(range(args.show_episodes)):
         # Initialize the environment and get it's state
-        env = get_env(args.size, show=True, slip=args.slip, rewards=args.reward_overrides)
-        state, info = env.reset()
+        env = get_env(args.size, **env_kwargs)
         env_data = get_env_data(env)
         env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
+        state, info = env.reset()
         state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
         for t in count():
             action = select_action(state, greedy=True)
@@ -315,6 +318,8 @@ if __name__ == "__main__":
                         help="Enable slipping in the environment")
     parser.add_argument("--show-train", action="store_true", 
                         help="Render environment while training")
+    parser.add_argument("--max-episode-steps", type=int, default=100, 
+                        help="Maximum number of steps per episode")
     parser.add_argument("--num-episodes", type=int, default=600,
                         help="Number of episodes to train for.")
     parser.add_argument("--eval-episodes", type=int, default=100,

@@ -54,7 +54,8 @@ def get_env(size: int = 4,
     return env
     
 
-def get_env_data(env, pad_tile: tile_dtype = "B", overrides: typing.Dict = {}):
+def get_env_data(env, pad_tile: tile_dtype = "B", overrides: typing.Dict = {},
+                 tile_types: typing.List[tile_dtype] = ["F", "H", "G"]):
     """
     Get environment data.
 
@@ -67,6 +68,8 @@ def get_env_data(env, pad_tile: tile_dtype = "B", overrides: typing.Dict = {}):
     overrides: typing.Dict
         A dictionary of tiles to override with a different tile type.
         tile coordinates -> tile type
+    tile_types: typing.List[tile_dtype]
+        List of tiles. Order will be preserved in assigning tiles to indices.
 
     Returns:
     --------
@@ -83,8 +86,8 @@ def get_env_data(env, pad_tile: tile_dtype = "B", overrides: typing.Dict = {}):
 
     nrows, ncols = map.shape
     
-    map[map == "S"] = "F" # Remove start tile
-    tile_types = sorted(np.unique(map).tolist())
+    if "S" not in tile_types:
+        map[map == "S"] = "F" # Remove start tile
     if pad_tile not in tile_types:
         tile_types.append(pad_tile)
     tile_type_ids = {tp: i for i, tp in enumerate(tile_types)}
@@ -108,7 +111,7 @@ def get_env_data(env, pad_tile: tile_dtype = "B", overrides: typing.Dict = {}):
         "padded_map": padded_map,
         "pad_tile": pad_tile,
         "pad_tile_id": pad_tile_id,
-        "nholes": len(tile_locations[tile_type_ids["H"]]),
+        "nholes": len(tile_locations[tile_type_ids["H"]]) if "H" in tile_type_ids else 0,
         "tile_locations": tile_locations,
         "tile_types": tile_types,
         "tile_type_ids": tile_type_ids,

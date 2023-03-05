@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from collections import namedtuple, deque
 from itertools import count
+from tqdm import tqdm
+from argparse import ArgumentParser
 
 import torch
 import torch.nn as nn
@@ -21,7 +23,6 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from frozenlake_utils import *
-from argparse import ArgumentParser
 
 def main(args):
     env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
@@ -37,7 +38,12 @@ def main(args):
     plt.ion()
 
     # if gpu is to be used
-    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
+    if args.device == "mps": # M1 mac
+        if not torch.backends.mps.is_available() or not torch.backends.mps.is_built():
+            args.device = "cpu"
+        device = torch.device(args.device)
+    else:
+        device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     Transition = namedtuple('Transition',
                             ('state', 'action', 'next_state', 'reward'))
@@ -98,7 +104,7 @@ def main(args):
     target_net.load_state_dict(policy_net.state_dict())
 
     optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
-    memory = ReplayMemory(10000)
+    memory = ReplayMemory(args.replay_memory)
 
     steps_done = 0
 
@@ -112,9 +118,9 @@ def main(args):
             with torch.no_grad():
                 if one_hot:
                     state = F.one_hot(torch.tensor(state, device=device), num_classes=ob_space).unsqueeze(0).to(dtype=torch.float32)
-                return policy_net(state).argmax().view(1, 1)
+                return policy_net(state.to(device=device)).cpu().argmax().view(1, 1)
         else:
-            return torch.tensor([[env.action_space.sample()]], device=device, dtype=torch.long)
+            return torch.tensor([[env.action_space.sample()]], device="cpu", dtype=torch.long).detach()
 
 
     episode_rewards = []
@@ -153,17 +159,17 @@ def main(args):
         # to Transition of batch-arrays.
         batch = Transition(*zip(*transitions))
 
-        batch_next_state = tuple(torch.tensor(s) if s is not None else None for s in batch.next_state)
-        batch_state = tuple(torch.tensor(s) if s is not None else None for s in batch.state)
+        batch_next_state = tuple(torch.as_tensor(s) if s is not None else None for s in batch.next_state)
+        batch_state = tuple(torch.as_tensor(s) if s is not None else None for s in batch.state)
 
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
                                             batch_next_state)), device=device, dtype=torch.bool)
         non_final_next_states = torch.cat([s for s in batch_next_state
-                                                    if s is not None]).to(dtype=torch.float32)
+                                           if s is not None]).to(device=device, dtype=torch.float32)
         # state_batch = torch.cat(batch.state)
-        state_batch = torch.cat(batch_state).to(dtype=torch.float32)
-        action_batch = torch.cat(batch.action)
-        reward_batch = torch.cat(batch.reward)
+        state_batch = torch.cat(batch_state).to(device=device, dtype=torch.float32)
+        action_batch = torch.cat(batch.action).to(device=device)
+        reward_batch = torch.cat(batch.reward).to(device=device)
 
         state_action_values = policy_net(state_batch).gather(1, action_batch)
 
@@ -184,7 +190,7 @@ def main(args):
         torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
         optimizer.step()
 
-    for i_episode in range(args.num_episodes):
+    for i_episode in tqdm(range(args.num_episodes)):
         # Initialize the environment and get it's state
         env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
         state, info = env.reset()
@@ -196,13 +202,13 @@ def main(args):
             # print(f'action: {action}')
             observation, reward, terminated, truncated, _ = env.step(action.item())
             observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
-            reward = torch.tensor([reward], device=device)
+            reward = torch.tensor([reward])
             done = terminated or truncated
 
             if terminated:
                 next_state = None
             else:
-                next_state = torch.tensor(observation, device=device).unsqueeze(0)
+                next_state = observation.unsqueeze(0)
             # Store the transition in memory
             memory.push(state, action, next_state, reward)
 
@@ -233,7 +239,7 @@ def main(args):
 
     env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
     eval_results = []
-    for i_episode in range(args.eval_episodes):
+    for i_episode in tqdm(range(args.eval_episodes)):
         # Initialize the environment and get it's state
         env = get_env(args.size, show=args.show_train, slip=args.slip, rewards=args.reward_overrides)
         state, info = env.reset()
@@ -247,13 +253,13 @@ def main(args):
             observation, reward, terminated, truncated, _ = env.step(action.item())
             observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
             episode_rewards.append(reward)
-            reward = torch.tensor([reward], device=device)
+            reward = torch.tensor([reward])
             done = terminated or truncated
 
             if terminated:
                 next_state = None
             else:
-                next_state = torch.tensor(observation, device=device).unsqueeze(0)
+                next_state = observation.unsqueeze(0)
             # Store the transition in memory
             memory.push(state, action, next_state, reward)
 
@@ -274,7 +280,7 @@ def main(args):
 
     # Show model on a number of episodes
     env = get_env(args.size, show=True, slip=args.slip, rewards=args.reward_overrides)
-    for i_episode in range(args.show_episodes):
+    for i_episode in tqdm(range(args.show_episodes)):
         # Initialize the environment and get it's state
         env = get_env(args.size, show=True, slip=args.slip, rewards=args.reward_overrides)
         state, info = env.reset()
@@ -285,13 +291,13 @@ def main(args):
             action = select_action(state, greedy=True)
             observation, reward, terminated, truncated, _ = env.step(action.item())
             observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
-            reward = torch.tensor([reward], device=device)
+            reward = torch.tensor([reward])
             done = terminated or truncated
 
             if terminated:
                 next_state = None
             else:
-                next_state = torch.tensor(observation, device=device).unsqueeze(0)
+                next_state = observation.unsqueeze(0)
             # Store the transition in memory
             memory.push(state, action, next_state, reward)
 
@@ -337,6 +343,8 @@ if __name__ == "__main__":
                         help="Ratio of holes to hide")
     parser.add_argument("--state-type", type=str, default="neighbor",
                         help="Type of state representation to use.")
+    parser.add_argument("--replay-memory", type=int, default=10000,
+                        help="Number of transitions to store in replay memory")
 
     args = parser.parse_args()
     reward_overrides = {}

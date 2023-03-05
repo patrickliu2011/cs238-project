@@ -118,7 +118,7 @@ def pos2coord(pos: int, env_data: env_dtype):
     """Convert position to coordinates."""
     return np.unravel_index(pos, (env_data["nrows"], env_data["ncols"]))
 
-def coord2pos(coord: typing.Iterable, env_data: env_dtype):
+def coord2pos(coord: typing.Iterable[int], env_data: env_dtype):
     """Convert coordinates to position."""
     return np.ravel_multi_index(coord, (env_data["nrows"], env_data["ncols"]))
 
@@ -143,7 +143,7 @@ def tile_id_to_onehot(tile_id: int, env_data: env_dtype):
 
 def state_to_observation(state: int, env_data: env_dtype):
     """Convert state (position index) to observation (numpy array) for an agent."""
-    position = pos_to_onehot(state, env_data)
+    position = np.array(pos2coord(state, env_data))
     neighbors = get_tile_neighbors(state, env_data, radius=1)
     neighbors = tile_id_to_onehot(neighbors.flatten(), env_data)
     observation = np.concatenate([position, neighbors.flatten()])

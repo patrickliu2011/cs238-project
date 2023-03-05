@@ -128,24 +128,35 @@ def main(args):
             return torch.tensor([[env.action_space.sample()]], device="cpu", dtype=torch.long).detach()
 
 
-    episode_rewards = []
-
-    def plot_rewards(show_result=False):
-        plt.figure(1)
-        rewards_t = torch.tensor(episode_rewards, dtype=torch.float)
+    
+    episode_metrics = {metric: [] for metric in args.plot_metrics}
+    figaxs = {metric: plt.subplots(figsize=(4, 3)) for metric in args.plot_metrics}
+    for metric, (fig, ax) in figaxs.items():
+        ax.set_ylabel(metric)
+        fig.canvas.manager.set_window_title(metric)
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    def plot_metrics(show_result=False, window=100):
         if show_result:
-            plt.title('Result')
+            for fig, ax in figaxs.values():
+                ax.set_title('Result')
         else:
-            plt.clf()
-            plt.title('Training...')
-        plt.xlabel('Episode')
-        plt.ylabel('Success')
-        plt.plot(rewards_t.numpy())
-        # Take 100 episode averages and plot them too
-        if len(rewards_t) >= 100:
-            means = rewards_t.unfold(0, 100, 1).mean(1).view(-1)
-            means = torch.cat((torch.zeros(99), means))
-            plt.plot(means.numpy())
+            for fig, ax in figaxs.values():
+                ax.set_title('Training...')
+
+        for metric in args.plot_metrics:
+            fig, ax = figaxs[metric]
+            ax.set_xlabel('Episode')
+            metric_t = torch.tensor(episode_metrics[metric], dtype=torch.float)
+            t = np.arange(len(metric_t))
+            ax.plot(metric_t.numpy(), colors[0])
+            # Take 100 episode averages and plot them too
+            if len(metric_t) >= window:
+                means = metric_t.unfold(0, window, 1).mean(1).view(-1)
+                ax.plot(t[-len(means):], means.numpy(), colors[1])
+        
+        for fig, ax in figaxs.values():
+            fig.tight_layout()
+            fig.canvas.draw()
 
         plt.pause(0.001)  # pause a bit so that plots are updated
         if is_ipython:
@@ -202,10 +213,12 @@ def main(args):
         env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
         state, info = env.reset()
         state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
+        rewards = []
         for t in count():
             action = select_action(state)
             # print(f'action: {action}')
             observation, reward, terminated, truncated, _ = env.step(action.item())
+            rewards.append(reward)
             observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
             reward = torch.tensor([reward])
             done = terminated or truncated
@@ -232,13 +245,19 @@ def main(args):
             target_net.load_state_dict(target_net_state_dict)
 
             if done:
-                # episode_durations.append(t + 1)
-                episode_rewards.append(reward)
-                plot_rewards()
+                metrics = {
+                    "reward": sum(rewards),
+                    "succeeded": reward[-1] > 0,
+                    "duration": t + 1,
+                }
+                for metric, value in metrics.items():
+                    if metric in episode_metrics:
+                        episode_metrics[metric].append(value)
+                plot_metrics()
                 break
 
     print('Complete')
-    plot_rewards(show_result=True)
+    plot_metrics(show_result=True)
     plt.ioff()
     plt.show()
 
@@ -248,15 +267,15 @@ def main(args):
         env = get_env(args.size, **env_kwargs)
         env_data = get_env_data(env)
         env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
-        state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
         state, info = env.reset()
-        episode_rewards = []
+        state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
+        rewards = []
         duration = 0
         for t in count():
             action = select_action(state, greedy=True)
             observation, reward, terminated, truncated, _ = env.step(action.item())
             observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
-            episode_rewards.append(reward)
+            rewards.append(reward)
             reward = torch.tensor([reward])
             done = terminated or truncated
 
@@ -274,8 +293,8 @@ def main(args):
                 duration = t + 1
                 break
         eval_results.append({
-            "reward": sum(episode_rewards),
-            "succeeded": episode_rewards[-1] > 0,
+            "reward": sum(rewards),
+            "succeeded": rewards[-1] > 0,
             "duration": duration,
         })
     eval_results = pd.DataFrame(eval_results)
@@ -350,6 +369,8 @@ if __name__ == "__main__":
                         help="Type of state representation to use.")
     parser.add_argument("--replay-memory", type=int, default=10000,
                         help="Number of transitions to store in replay memory")
+    parser.add_argument("--plot-metrics", type=str, nargs="*", default=["reward", "succeeded", "duration"],
+                        help="Metrics to plot during training")
 
     args = parser.parse_args()
     reward_overrides = {}

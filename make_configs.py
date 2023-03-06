@@ -14,14 +14,20 @@ state_type = {"map"}
 
 config_lists = []
 
-args_names = ["--size", "--slip", "--num-episodes", "eval-episodes", "--reward-overrides", "--gamma", "--ratio-hide", "--state-type"]
+args_names = ["--size", "--slip", "--num-episodes", "--eval-episodes", "--reward-overrides", "--gamma", "--ratio-hide", "--state-type"]
 for tup in product(sizes, slip, num_episode, eval_episode, reward_overrides, gamma, ratio_hide, state_type):
 	configs = []
 	for x, y in zip(args_names, tup):
+		if isinstance(y, bool):
+			if y:
+				configs.append(str(x))
+			continue
 		configs.append(str(x))
 		configs.append(str(y))
 
 	config_str = " ".join(configs)
+	exp_name = config_str.replace(" ", "_")
+	config_str += " --exp-name " + exp_name
 	config_lists.append(final_command + config_str)
 
 print(config_lists) 

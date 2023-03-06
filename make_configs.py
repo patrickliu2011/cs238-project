@@ -11,7 +11,7 @@ gamma = {0.9, 0.95, 0.99}
 ratio_hide = {0.5, 1}
 state_type = {"map"}    
 
-additional_commands = "--show-episodes 0 --show-interval -1"
+additional_commands = " --show-episodes 0 --show-interval -1 --suppress-figs"
 
 config_lists = []
 
@@ -27,7 +27,7 @@ for tup in product(sizes, slip, num_episode, eval_episode, reward_overrides, gam
 		configs.append(str(y))
 
 	config_str = " ".join(configs)
-	exp_name = config_str.replace(" ", "_")
+	exp_name = config_str.replace(" ", "_").replace("--", "")
 	config_str += " --exp-name " + exp_name
 	config_lists.append(final_command + config_str + additional_commands)
 

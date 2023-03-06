@@ -26,6 +26,8 @@ import torch.nn.functional as F
 from frozenlake_utils import *
 
 def main(args):
+    if args.suppress_figs:
+        matplotlib.use('Agg')
     env_kwargs = {
         "show": args.show_train,
         "slip": args.slip,
@@ -161,7 +163,8 @@ def main(args):
             fig.canvas.draw()
             if show_result:
                 fig.savefig(path + "{metric}.png")
-        plt.pause(0.001)  # pause a bit so that plots are updated
+        if not args.suppress_figs:
+            plt.pause(0.001)  # pause a bit so that plots are updated
         if is_ipython:
             if not show_result:
                 display.display(plt.gcf())
@@ -392,6 +395,8 @@ if __name__ == "__main__":
                         help="Number of transitions to store in replay memory")
     parser.add_argument("--plot-metrics", type=str, nargs="*", default=["reward", "succeeded", "duration"],
                         help="Metrics to plot during training")
+    parser.add_argument("--suppress-figs", action="store_true",
+                        help="Suppress figures from making windows.")
 
     args = parser.parse_args()
     reward_overrides = {}

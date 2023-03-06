@@ -7,6 +7,7 @@ Reinforcement Learning (DQN) Tutorial
 """
 
 import gymnasium as gym
+import os
 import math
 import random
 import matplotlib
@@ -206,6 +207,77 @@ def main(args):
         torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
         optimizer.step()
 
+    def evaluate_model(args, save_path=None):
+        eval_results = []
+        for i_episode in tqdm(range(args.eval_episodes)):
+            # Initialize the environment and get it's state
+            env = get_env(args.size, **env_kwargs)
+            env_data = get_env_data(env)
+            env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
+            state, info = env.reset()
+            state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
+            rewards = []
+            duration = 0
+            for t in count():
+                action = select_action(state, greedy=True)
+                observation, reward, terminated, truncated, _ = env.step(action.item())
+                observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
+                rewards.append(reward)
+                reward = torch.tensor([reward])
+                done = terminated or truncated
+
+                if terminated:
+                    next_state = None
+                else:
+                    next_state = observation.unsqueeze(0)
+
+                # Move to the next state
+                state = next_state
+
+                if done:
+                    duration = t + 1
+                    break
+            eval_results.append({
+                "reward": sum(rewards),
+                "succeeded": rewards[-1] > 0,
+                "duration": duration,
+            })
+        eval_results = pd.DataFrame(eval_results)
+        print("Evaluation results:")
+        print(eval_results.mean(axis=0))
+        if save_path is not None:
+            save_dir = os.path.dirname(save_path)
+            os.makedirs(save_dir, exist_ok=True)
+            eval_results.to_csv(save_path)
+
+    def show_model(args):
+        env_kwargs_copy = env_kwargs.copy()
+        env_kwargs_copy["show"] = True
+        for i_episode in tqdm(range(args.show_episodes)):
+            # Initialize the environment and get its state
+            env = get_env(args.size, **env_kwargs_copy)
+            env_data = get_env_data(env)
+            env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
+            state, info = env.reset()
+            state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
+            for t in count():
+                action = select_action(state, greedy=True)
+                observation, reward, terminated, truncated, _ = env.step(action.item())
+                observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
+                reward = torch.tensor([reward])
+                done = terminated or truncated
+
+                if terminated:
+                    next_state = None
+                else:
+                    next_state = observation.unsqueeze(0)
+
+                # Move to the next state
+                state = next_state
+
+                if done:
+                    break
+
     for i_episode in tqdm(range(args.num_episodes)):
         # Initialize the environment and get it's state
         env = get_env(args.size, **env_kwargs)
@@ -256,81 +328,24 @@ def main(args):
                 plot_metrics()
                 break
 
+        if args.eval_interval > 0 and (i_episode + 1) % args.eval_interval == 0:
+            evaluate_model(args, save_path=os.path.join(f"eval_results/{args.exp_name}/{i_episode}.csv"))
+        
+        if args.show_interval > 0 and (i_episode + 1) % args.show_interval == 0:
+            show_model(args)
+
     print('Complete')
     plot_metrics(show_result=True)
     plt.ioff()
     plt.show()
 
-    eval_results = []
-    for i_episode in tqdm(range(args.eval_episodes)):
-        # Initialize the environment and get it's state
-        env = get_env(args.size, **env_kwargs)
-        env_data = get_env_data(env)
-        env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
-        state, info = env.reset()
-        state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
-        rewards = []
-        duration = 0
-        for t in count():
-            action = select_action(state, greedy=True)
-            observation, reward, terminated, truncated, _ = env.step(action.item())
-            observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
-            rewards.append(reward)
-            reward = torch.tensor([reward])
-            done = terminated or truncated
-
-            if terminated:
-                next_state = None
-            else:
-                next_state = observation.unsqueeze(0)
-            # Store the transition in memory
-            memory.push(state, action, next_state, reward)
-
-            # Move to the next state
-            state = next_state
-
-            if done:
-                duration = t + 1
-                break
-        eval_results.append({
-            "reward": sum(rewards),
-            "succeeded": rewards[-1] > 0,
-            "duration": duration,
-        })
-    eval_results = pd.DataFrame(eval_results)
-    print("Evaluation results:")
-    print(eval_results.mean(axis=0))
-
-    # Show model on a number of episodes
-    for i_episode in tqdm(range(args.show_episodes)):
-        # Initialize the environment and get it's state
-        env = get_env(args.size, **env_kwargs)
-        env_data = get_env_data(env)
-        env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
-        state, info = env.reset()
-        state = torch.from_numpy(state_to_observation(state, env_data, mode=args.state_type)).float().unsqueeze(0)
-        for t in count():
-            action = select_action(state, greedy=True)
-            observation, reward, terminated, truncated, _ = env.step(action.item())
-            observation = torch.from_numpy(state_to_observation(observation, env_data, mode=args.state_type)).float()
-            reward = torch.tensor([reward])
-            done = terminated or truncated
-
-            if terminated:
-                next_state = None
-            else:
-                next_state = observation.unsqueeze(0)
-            # Store the transition in memory
-            memory.push(state, action, next_state, reward)
-
-            # Move to the next state
-            state = next_state
-
-            if done:
-                break
+    evaluate_model(args, save_path=os.path.join(f"eval_results_final/{args.exp_name}/{args.num_episodes}.csv"))
+    show_model(args)
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Train DQN model on FrozenLake environment.")
+    parser.add_argument("--exp-name", type=str, default="exp",
+                        help="Name of experiment.")
     parser.add_argument("--size", type=int, default=4, 
                         help="Size of environment")
     parser.add_argument("--slip", action="store_true", 
@@ -343,8 +358,12 @@ if __name__ == "__main__":
                         help="Number of episodes to train for.")
     parser.add_argument("--eval-episodes", type=int, default=100,
                         help="Number of episodes to eval for.")
-    parser.add_argument("--show-episodes", type=int, default=50,
+    parser.add_argument("--show-episodes", type=int, default=20,
                         help="Number of episodes to display for.")
+    parser.add_argument("--eval-interval", type=int, default=100,
+                        help="Number of episodes between evaluations. -1 to only evaluate at end.")
+    parser.add_argument("--show-interval", type=int, default=-1,
+                        help="Number of episodes between showing. -1 to only show at end.")
     parser.add_argument("--reward-overrides", type=str, nargs="*", default=[],
                         help="List of tile types to override rewards for, formatted as \"H:-1 F:-0.01\"")
     parser.add_argument("--batch-size", type=int, default=128,

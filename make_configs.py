@@ -4,12 +4,12 @@ final_command = 'python3 train_dqn.py '
 
 sizes = {4, 6}
 slip = {True, False}
-num_episode = {100, 400, 1000} 
+num_episode = {100, 400, 1000}
 eval_episode = {1000}
 reward_overrides = {"H:0 F:0 G:1", "H:-1 F:-0.01 G:1", "H:-1 F:0.1 G:1"}
 gamma = {0.9, 0.95, 0.99}
 ratio_hide = {0.5, 1}
-state_type = {"map"}    
+state_type = {"map"}
 
 additional_commands = " --show-episodes 0 --show-interval -1 --suppress-figs"
 
@@ -31,15 +31,22 @@ for tup in product(sizes, slip, num_episode, eval_episode, reward_overrides, gam
 	config_str += " --exp-name " + exp_name
 	config_lists.append(final_command + config_str + additional_commands)
 
-print(config_lists) 
+print(config_lists)
 
 commands = config_lists
 
 from subprocess import Popen
+from concurrent.futures import ThreadPoolExecutor
+
+max_processes = 5
+processes = []
+
+def run_command(command):
+    process = Popen(command, shell=True)
+    process.wait()
+    return process
 
 # run in parallel
-max_processes = 5
-for i in range(0, len(commands), max_processes):
-	processes = [Popen(cmd, shell=True) for cmd in commands[i:i+max_processes]]
-	for p in processes: 
-		p.wait()
+with ThreadPoolExecutor(max_workers=max_processes) as executor:
+    for command in commands:
+        processes.append(executor.submit(run_command, command))

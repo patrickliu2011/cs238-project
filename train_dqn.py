@@ -128,8 +128,6 @@ def main(args):
         else:
             return torch.tensor([[env.action_space.sample()]], device="cpu", dtype=torch.long).detach()
 
-
-
     episode_metrics = {metric: [] for metric in args.plot_metrics}
     figaxs = {metric: plt.subplots(figsize=(4, 3)) for metric in args.plot_metrics}
     for metric, (fig, ax) in figaxs.items():
@@ -140,7 +138,7 @@ def main(args):
         if show_result:
             for fig, ax in figaxs.values():
                 ax.set_title('Result')
-            path = "results"
+            path = f"results/{args.exp_name}"
             os.makedirs(path, exist_ok=True)
         else:
             for fig, ax in figaxs.values():
@@ -162,7 +160,7 @@ def main(args):
             fig.tight_layout()
             fig.canvas.draw()
             if show_result:
-                fig.savefig(path + f"/{args.exp_name}_{metric}.png")
+                fig.savefig(path + "{metric}.png")
         plt.pause(0.001)  # pause a bit so that plots are updated
         if is_ipython:
             if not show_result:

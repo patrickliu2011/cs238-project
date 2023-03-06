@@ -21,20 +21,21 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+import os
 
 from frozenlake_utils import *
 
 def main(args):
     env_kwargs = {
-        "show": args.show_train, 
-        "slip": args.slip, 
+        "show": args.show_train,
+        "slip": args.slip,
         "max_episode_steps": args.max_episode_steps,
         "rewards": args.reward_overrides,
     }
     env = get_env(args.size, **env_kwargs)
     env_data = get_env_data(env)
     env_data = get_env_data(env, overrides=get_overrides(env_data, args.ratio_hide))
-    
+
     # set up matplotlib
     is_ipython = 'inline' in matplotlib.get_backend()
     if is_ipython:
@@ -128,7 +129,7 @@ def main(args):
             return torch.tensor([[env.action_space.sample()]], device="cpu", dtype=torch.long).detach()
 
 
-    
+
     episode_metrics = {metric: [] for metric in args.plot_metrics}
     figaxs = {metric: plt.subplots(figsize=(4, 3)) for metric in args.plot_metrics}
     for metric, (fig, ax) in figaxs.items():
@@ -139,6 +140,8 @@ def main(args):
         if show_result:
             for fig, ax in figaxs.values():
                 ax.set_title('Result')
+            path = "results"
+            os.makedirs(path, exist_ok=True)
         else:
             for fig, ax in figaxs.values():
                 ax.set_title('Training...')
@@ -153,11 +156,13 @@ def main(args):
             if len(metric_t) >= window:
                 means = metric_t.unfold(0, window, 1).mean(1).view(-1)
                 ax.plot(t[-len(means):], means.numpy(), colors[1])
-        
-        for fig, ax in figaxs.values():
+
+        # for fig, ax in figaxs.values():
+        for metric, (fig, ax) in figaxs.items():
             fig.tight_layout()
             fig.canvas.draw()
-
+            if show_result:
+                fig.savefig(path + f"/{args.exp_name}_{metric}.png")
         plt.pause(0.001)  # pause a bit so that plots are updated
         if is_ipython:
             if not show_result:
@@ -331,13 +336,15 @@ def main(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Train DQN model on FrozenLake environment.")
-    parser.add_argument("--size", type=int, default=4, 
+    parser.add_argument("--exp-name", type=str, default="exp",
+                        help="Name of experiment.")
+    parser.add_argument("--size", type=int, default=4,
                         help="Size of environment")
-    parser.add_argument("--slip", action="store_true", 
+    parser.add_argument("--slip", action="store_true",
                         help="Enable slipping in the environment")
-    parser.add_argument("--show-train", action="store_true", 
+    parser.add_argument("--show-train", action="store_true",
                         help="Render environment while training")
-    parser.add_argument("--max-episode-steps", type=int, default=100, 
+    parser.add_argument("--max-episode-steps", type=int, default=100,
                         help="Maximum number of steps per episode")
     parser.add_argument("--num-episodes", type=int, default=600,
                         help="Number of episodes to train for.")

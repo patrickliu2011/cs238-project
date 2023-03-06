@@ -138,7 +138,7 @@ def main(args):
         if show_result:
             for fig, ax in figaxs.values():
                 ax.set_title('Result')
-            path = f"results/{args.exp_name}"
+            path = f"metrics/{args.exp_name}"
             os.makedirs(path, exist_ok=True)
         else:
             for fig, ax in figaxs.values():

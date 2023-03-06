@@ -162,7 +162,7 @@ def main(args):
             fig.tight_layout()
             fig.canvas.draw()
             if show_result:
-                fig.savefig(path + "{metric}.png")
+                fig.savefig(path + "/{metric}.png")
         if not args.suppress_figs:
             plt.pause(0.001)  # pause a bit so that plots are updated
         if is_ipython:

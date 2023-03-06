@@ -11,6 +11,7 @@ gamma = {0.9, 0.95, 0.99}
 ratio_hide = {0.5, 1}
 state_type = {"map"}    
 
+additional_commands = "--show-episodes 0 --show-interval -1"
 
 config_lists = []
 
@@ -28,7 +29,7 @@ for tup in product(sizes, slip, num_episode, eval_episode, reward_overrides, gam
 	config_str = " ".join(configs)
 	exp_name = config_str.replace(" ", "_")
 	config_str += " --exp-name " + exp_name
-	config_lists.append(final_command + config_str)
+	config_lists.append(final_command + config_str + additional_commands)
 
 print(config_lists) 
 
@@ -37,6 +38,8 @@ commands = config_lists
 from subprocess import Popen
 
 # run in parallel
-processes = [Popen(cmd, shell=True) for cmd in commands]
-for p in processes: 
-	p.wait()
+max_processes = 5
+for i in range(0, len(commands), max_processes):
+	processes = [Popen(cmd, shell=True) for cmd in commands[i:i+max_processes]]
+	for p in processes: 
+		p.wait()

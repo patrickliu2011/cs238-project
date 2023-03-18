@@ -1,6 +1,6 @@
 name: cs238_project
 channels:
-  - pytorch-nightly
+  - pytorch
   - anaconda
   - defaults
   - conda-forge

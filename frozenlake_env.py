@@ -11,7 +11,7 @@ class CustomFrozenLakeEnv(gym.Env):
     STATE_TYPES = ["embedded_map"]
     OBSCURE_TYPES = [None, "neighbor"]
 
-    def __init__(self, env_kwargs, env_data_kwargs, state_type="embedded_map", obscure_type=None, obscure_tile_type="."):
+    def __init__(self, env_kwargs, env_data_kwargs, state_type="embedded_map", obscure_type=None):
         super(CustomFrozenLakeEnv, self).__init__()
         self._env_kwargs = env_kwargs
         self._env_data_kwargs = env_data_kwargs
@@ -19,12 +19,9 @@ class CustomFrozenLakeEnv(gym.Env):
         assert self._state_type in self.STATE_TYPES, "Invalid state type"
         self._obscure_type = obscure_type
         assert self._obscure_type in self.OBSCURE_TYPES, "Invalid obscure type"
-        self._obscure_tile_type = obscure_tile_type
 
         self._env = fl.get_env(**self._env_kwargs)
         self._env_data = fl.get_env_data(self._env, **self._env_data_kwargs)
-        if self._obscure_type is not None:
-            assert self._obscure_tile_type in self._env_data["tile_types"], "Invalid obscure tile type"
 
         self.action_space = spaces.discrete.Discrete(4)
         self._observation_shape = (

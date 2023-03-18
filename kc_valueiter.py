@@ -2,6 +2,7 @@ import numpy as np
 import gymnasium as gym
 
 def get_size(shape):
+    return np.prod(shape)
     size = 1
     for i in shape:
         size *= i
@@ -68,11 +69,12 @@ def value_iteration(env, gamma = 1.0):
     for i in range(max_iterations):
         prev_v = np.copy(V)
         for s in range(sh):
-            q_sa = [sum([p*(r + prev_v[s_]) for p, s_, r, _ in env.P[s][a]]) for a in range(env.action_space.n)]
+            q_sa = [sum([p*(r + gamma * prev_v[s_]) for p, s_, r, _ in env.P[s][a]]) for a in range(env.action_space.n)]
             V[s] = max(q_sa)
         if (np.sum(np.fabs(prev_v - V)) <= eps):
             print ('Value-iteration converged at iteration# %d.' %(i+1))
             break
+        print(V.reshape(4,4))
     return V
 
 def compute_policy_v(env, policy, gamma=1.0):
@@ -100,25 +102,28 @@ def policy_iteration(env, gamma = 1.0):
     sh = get_size(env.env.unwrapped.desc.astype(str).shape)
     policy = np.random.choice(env.action_space.n , size=(sh))  # initialize a random policy
     max_iterations = 200000
-    gamma = 1.0
     for i in range(max_iterations):
         old_policy_v = compute_policy_v(env, policy, gamma)
         new_policy = extract_policy(old_policy_v, gamma)
         if (np.all(policy == new_policy)):
-            print ('Policy-Iteration converged at step %d.' %(i+1))
+            print ('Policy-Iteration converged at at iteration# %d.' %(i+1))
             break
         policy = new_policy
     return policy
 
 if __name__ == '__main__':
     env_name  = 'FrozenLake-v1'
-    gamma = 1
+    gamma = 0.9
     env = gym.make(env_name, is_slippery=True) #render_mode="human")
+    print(env.unwrapped.desc.astype(str))
     optimal_v = value_iteration(env, gamma)
     policy = extract_policy(optimal_v, gamma)
-    policy_score = evaluate_policy(env, policy, gamma, n=1000)
-    print('Policy average score = ', policy_score)
+    print("Optimal Policy:\n", policy.reshape(4,4))
+    policy_score = evaluate_policy(env, policy, gamma=1, n=1000)
+    print('Value Iteration average score = ', policy_score)
 
-    optimal_policy = policy_iteration(env, gamma = 1.0)
-    scores = evaluate_policy(env, optimal_policy, gamma = 1.0)
-    print('Average scores = ', np.mean(scores))
+    optimal_policy = policy_iteration(env, gamma)
+    print("Optimal Policy:\n", optimal_policy.reshape(4,4))
+    # env = gym.make(env_name, is_slippery=False, render_mode="human")
+    score = evaluate_policy(env, optimal_policy, gamma=1)
+    print('Policy iteration average score = ', score)

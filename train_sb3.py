@@ -10,7 +10,6 @@ from stable_baselines3.common.env_checker import check_env
 import sb3_contrib
 
 import frozenlake_utils as fl
-import model_utils as mu
 from frozenlake_env import CustomFrozenLakeEnv
 
 # TODO: SB3_contrib algos may not run properly with current code
@@ -56,28 +55,32 @@ def main(args):
         "p_start": "uniform" if args.random_start_pos else None,
         "p_goal": "uniform" if args.random_goal_pos else None,
     }
+    tile_types = ["F", "H", "G", "S"]
     env_data_kwargs = {
-        "tile_types": ["F", "H", "G", "S"]
+        "tile_types": tile_types
     }
     if args.ratio_hide > 0:
         env = fl.get_env(**env_kwargs)
         env_data = fl.get_env_data(env, **env_data_kwargs)
         env_data_kwargs["overrides"] = fl.get_overrides(env_data, args.ratio_hide)
     state_type = args.state_type
+    obscure_type = args.obscure_type
 
-    custom_env = CustomFrozenLakeEnv(env_kwargs, env_data_kwargs, state_type=state_type)
+    custom_env = CustomFrozenLakeEnv(env_kwargs, env_data_kwargs, state_type=state_type, obscure_type=obscure_type)
     check_env(custom_env, warn=True, skip_render_check=True)
 
     vec_env = make_vec_env(
         "CustomFrozenLake-v1", 
         n_envs=args.num_envs, 
-        env_kwargs={"env_kwargs": env_kwargs, "env_data_kwargs": env_data_kwargs, "state_type": state_type}
+        env_kwargs={"env_kwargs": env_kwargs, "env_data_kwargs": env_data_kwargs, "state_type": state_type, "obscure_type": obscure_type}
     )
 
     model_kwargs = {}
     for var in ["gamma", "batch_size", "device"]:
         if getattr(args, var) is not None:
             model_kwargs[var] = getattr(args, var)
+    if args.net_arch is not None:
+        model_kwargs["policy_kwargs"] = {"net_arch": args.net_arch}
     
     ckpt_path = os.path.join(args.ckpt_dir, args.exp_name)
     algo = ALGOS[args.algo]
@@ -132,6 +135,8 @@ if __name__ == "__main__":
                         help="Ratio of holes to hide")
     parser.add_argument("--state-type", type=str, default="embedded_map",
                         help="Type of state representation to use. Currently only supports \"embedded_map\"")
+    parser.add_argument("--obscure-type", type=str, default=None,
+                        help="Type of obscuring to use.")
     
     # Training/eval arguments
     parser.add_argument("--train-timesteps", type=int, default=25_000,
@@ -152,6 +157,8 @@ if __name__ == "__main__":
                         help="Discount factor for training")
     parser.add_argument("--device", type=str, default=None, # "cuda",
                         help="Device to train on (cpu or cuda)")
+    parser.add_argument("--net-arch", type=int, nargs="+", default=None,
+                        help="Hidden layer sizes for MLP policy (e.g. 64 64)")
 
     # Saving/logging arguments
     parser.add_argument("--log-dir", type=str, default="sb3_log",

@@ -9,7 +9,7 @@ class CustomFrozenLakeEnv(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human', 'rgb_array']}
     STATE_TYPES = ["embedded_map"]
-    OBSCURE_TYPES = [None]
+    OBSCURE_TYPES = [None, "neighbor"]
 
     def __init__(self, env_kwargs, env_data_kwargs, state_type="embedded_map", obscure_type=None, obscure_tile_type="."):
         super(CustomFrozenLakeEnv, self).__init__()
@@ -41,19 +41,30 @@ class CustomFrozenLakeEnv(gym.Env):
 
     def _reset_obscuration(self):
         if self._obscure_type is None:
-            self._state_counts = np.zeros(self._observation_shape)
+            pass
+        elif self._obscure_type == "neighbor":
+            self._observed = np.zeros(self._observation_shape[:-1], dtype=bool)
         else:
             raise NotImplementedError("Invalid obscure type")
 
     def _update_obscuration(self, observation):
         if self._obscure_type is None:
-            self._state_counts += observation
+            pass
+        elif self._obscure_type == "neighbor":
+            x, y = fl.pos2coord(self._env.unwrapped.s, self._env_data)
+            for i, j in np.ndindex((3, 3)):
+                coord = (int(x + i - 1), int(y + j - 1))
+                if not all(0 <= c < s for c, s in zip(coord, self._observed.shape)): 
+                    continue
+                self._observed[coord] = True
         else:
             raise NotImplementedError("Invalid obscure type")
 
     def _get_obscured_observation(self, observation):
         if self._obscure_type is None:
             return observation
+        elif self._obscure_type == "neighbor":
+            return observation * self._observed[..., None]
         else:
             raise NotImplementedError("Invalid obscure type")
 

@@ -238,7 +238,7 @@ def generate_random_map(
         g_coord = (size - 1, size - 1)
         if p_goal == "uniform":
             i = np.random.choice(np.arange(board.size))
-            s_coord = np.unravel_index(i, board.shape)
+            g_coord = np.unravel_index(i, board.shape)
         elif isinstance(p_goal, np.ndarray):
             i = np.random.choice(np.arange(p_goal.size), p=p_goal.ravel())
             g_coord = np.unravel_index(i, p_goal.shape)

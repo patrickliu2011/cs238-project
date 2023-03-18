@@ -4,13 +4,36 @@ from itertools import count
 from argparse import ArgumentParser
 
 import gymnasium as gym
-from stable_baselines3 import PPO
+import stable_baselines3
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.env_checker import check_env
+import sb3_contrib
 
 import frozenlake_utils as fl
 import model_utils as mu
 from frozenlake_env import CustomFrozenLakeEnv
+
+# TODO: SB3_contrib algos may not run properly with current code
+ALGOS = {
+    "a2c": stable_baselines3.A2C,
+    "dqn": stable_baselines3.DQN,
+    "her": stable_baselines3.HER,
+    "ppo": stable_baselines3.PPO,
+    "sac": stable_baselines3.SAC,
+    "td3": stable_baselines3.TD3,
+    "ars": sb3_contrib.ARS,
+    "maskableppo": sb3_contrib.MaskablePPO,
+    "recurrentppo": sb3_contrib.RecurrentPPO, 
+    "qrdqn": sb3_contrib.QRDQN,
+    "tqc": sb3_contrib.TQC,
+    "trpo": sb3_contrib.TRPO,
+}
+
+POLICIES = {
+    "mlp": "MlpPolicy",
+    "cnn": "CnnPolicy",
+    "multiinput": "MultiInputPolicy",
+}
 
 def main(args):
     from gym.envs.registration import register
@@ -45,27 +68,29 @@ def main(args):
 
     vec_env = make_vec_env(
         "CustomFrozenLake-v1", 
-        n_envs=4, 
+        n_envs=args.num_envs, 
         env_kwargs={"env_kwargs": env_kwargs, "env_data_kwargs": env_data_kwargs, "state_type": state_type}
     )
 
-    model_kwargs = {
-        "gamma": args.gamma,
-        "batch_size": args.batch_size,
-        "device": args.device,
-    }
+    model_kwargs = {}
+    for var in ["gamma", "batch_size", "device"]:
+        if getattr(args, var) is not None:
+            model_kwargs[var] = getattr(args, var)
+    
     ckpt_path = os.path.join(args.ckpt_dir, args.exp_name)
+    algo = ALGOS[args.algo]
+    policy = POLICIES[args.policy]
     if args.init_ckpt is not None:
-        model = PPO.load(args.init_ckpt, env=vec_env)
+        model = algo.load(args.init_ckpt, env=vec_env)
     else:
-        model = PPO("MlpPolicy", vec_env, verbose=1, **model_kwargs)
+        model = algo(policy, vec_env, verbose=1, **model_kwargs)
     model.set_logger(new_logger)
     model.learn(total_timesteps=args.train_timesteps, progress_bar=True)
     model.save(ckpt_path)
 
     del model
 
-    model = PPO.load(ckpt_path)
+    model = algo.load(ckpt_path)
     env_kwargs_copy = env_kwargs.copy()
     env_kwargs_copy["show"] = True
     vec_env = make_vec_env(
@@ -84,7 +109,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Train DQN model on FrozenLake environment.")
+    parser = ArgumentParser(description="Train Stable Baselines3 model on FrozenLake environment.")
     parser.add_argument("--exp-name", type=str, default="ppo_frozenlake",
                         help="Name of experiment.")
     
@@ -111,11 +136,15 @@ if __name__ == "__main__":
                         help="Number of environments to run in parallel.")
 
     # Model arguments
-    parser.add_argument("--batch-size", type=int, default=128,
+    parser.add_argument("--algo", type=str, default="ppo", choices=ALGOS.keys(),
+                        help="SB3 RL algorithm to use (ppo, dqn, etc.)")
+    parser.add_argument("--policy", type=str, default="mlp", choices=POLICIES.keys(),
+                        help="SB3 policy type (mlp, cnn, etc.)")
+    parser.add_argument("--batch-size", type=int, default=None, # 128,
                         help="Batch size for training")
-    parser.add_argument("--gamma", type=float, default=0.99,
+    parser.add_argument("--gamma", type=float, default=None, # 0.99,
                         help="Discount factor for training")
-    parser.add_argument("--device", type=str, default="cuda",
+    parser.add_argument("--device", type=str, default=None, # "cuda",
                         help="Device to train on (cpu or cuda)")
 
     # Saving/logging arguments

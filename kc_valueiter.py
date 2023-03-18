@@ -1,13 +1,6 @@
 import numpy as np
 import gymnasium as gym
 
-def get_size(shape):
-    return np.prod(shape)
-    size = 1
-    for i in shape:
-        size *= i
-    return size
-
 def run_episode(env, policy, gamma = 1.0, render = False):
     """ Evaluates policy by using it to run an episode and finding its
     total reward.
@@ -46,7 +39,7 @@ def evaluate_policy(env, policy, gamma = 1.0,  n = 100):
 
 def extract_policy(V, gamma = 1.0):
     """ Extract the policy given a value-function """
-    sh = get_size(env.env.unwrapped.desc.astype(str).shape)
+    sh = np.prod(env.env.unwrapped.desc.astype(str).shape)
     policy = np.zeros(sh)
     for s in range(sh):
         q_sa = np.zeros(env.action_space.n)
@@ -62,7 +55,7 @@ def extract_policy(V, gamma = 1.0):
 
 def value_iteration(env, gamma = 1.0):
     """ Value-iteration algorithm """
-    sh = get_size(env.env.unwrapped.desc.astype(str).shape)
+    sh = np.prod(env.env.unwrapped.desc.astype(str).shape)
     V = np.zeros(sh)  # initialize value-function
     max_iterations = 100000
     eps = 1e-20
@@ -82,7 +75,7 @@ def compute_policy_v(env, policy, gamma=1.0):
     Alternatively, we could formulate a set of linear equations in iterms of v[s]
     and solve them to find the value function.
     """
-    sh = get_size(env.env.unwrapped.desc.astype(str).shape)
+    sh = np.prod(env.env.unwrapped.desc.astype(str).shape)
     v = np.zeros(sh)
     eps = 1e-10
     i = 0
@@ -99,7 +92,7 @@ def compute_policy_v(env, policy, gamma=1.0):
 
 def policy_iteration(env, gamma = 1.0):
     """ Policy-Iteration algorithm """
-    sh = get_size(env.env.unwrapped.desc.astype(str).shape)
+    sh = np.prod(env.env.unwrapped.desc.astype(str).shape)
     policy = np.random.choice(env.action_space.n , size=(sh))  # initialize a random policy
     max_iterations = 200000
     for i in range(max_iterations):
@@ -113,9 +106,10 @@ def policy_iteration(env, gamma = 1.0):
 
 if __name__ == '__main__':
     env_name  = 'FrozenLake-v1'
-    gamma = 0.9
+    gamma = 0.99
     env = gym.make(env_name, is_slippery=True) #render_mode="human")
     print(env.unwrapped.desc.astype(str))
+
     optimal_v = value_iteration(env, gamma)
     policy = extract_policy(optimal_v, gamma)
     print("Optimal Policy:\n", policy.reshape(4,4))

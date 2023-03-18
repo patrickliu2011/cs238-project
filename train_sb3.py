@@ -53,6 +53,8 @@ def main(args):
         "slip": args.slip,
         "max_episode_steps": args.max_episode_steps,
         "rewards": args.reward_overrides,
+        "p_start": "uniform" if args.random_start_pos else None,
+        "p_goal": "uniform" if args.random_goal_pos else None,
     }
     env_data_kwargs = {
         "tile_types": ["F", "H", "G", "S"]
@@ -118,6 +120,10 @@ if __name__ == "__main__":
                         help="Size of environment")
     parser.add_argument("--slip", action="store_true",
                         help="Enable slipping in the environment")
+    parser.add_argument("--random-start-pos", action="store_true",
+                        help="Randomize start position")
+    parser.add_argument("--random-goal-pos", action="store_true",
+                        help="Randomize goal position")
     parser.add_argument("--max-episode-steps", type=int, default=100,
                         help="Maximum number of steps per episode")
     parser.add_argument("--reward-overrides", type=str, nargs="*", default=["H:-1", "F:-0.01", "G:10", "S:-0.01"],

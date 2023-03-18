@@ -2,7 +2,7 @@ import numpy as np
 import typing
 
 import gymnasium as gym
-from gymnasium.envs.toy_text.frozen_lake import generate_random_map
+from gymnasium.utils import seeding
 
 env_dtype = typing.Dict[str, typing.Any]
 tile_dtype = str
@@ -11,7 +11,9 @@ def get_env(size: int = 4,
             show: bool = False, 
             slip: bool = True,
             max_episode_steps: int = 100,
-            rewards: typing.Dict[tile_dtype, float] = {}
+            rewards: typing.Dict[tile_dtype, float] = {},
+            p_start=None,
+            p_goal=None
             ):
     """
     Get instance of environment with random hole positions.
@@ -29,6 +31,12 @@ def get_env(size: int = 4,
     rewards: typing.Dict
         A dictionary of tile types to override with a different reward.
         tile type -> reward value
+    p_start:
+        Probability distribution of starting position of the agent. If None, 
+        will start at (0, 0). If "uniform", will sample from a uniform distribution.
+    p_goal:
+        Probability distribution of goal position of the agent. If None,
+        will start at (size - 1, size - 1). If "uniform", will sample from a uniform distribution.
 
     Returns:
     --------
@@ -36,7 +44,7 @@ def get_env(size: int = 4,
         Instance of the environment
     """
     env_kwargs = {
-        "desc": generate_random_map(size=size), 
+        "desc": generate_random_map(size=size, p_start=p_start, p_goal=p_goal), 
         "is_slippery": slip,
     }
     if show:
@@ -175,3 +183,66 @@ def get_overrides(env_data: env_dtype, ratio: float):
     hole_ids = np.random.choice(nholes, nholes_to_remove, replace=False)
     hole_coords = [env_data["tile_locations"][env_data["tile_type_ids"]["H"]][i] for i in hole_ids]
     return {coord: "F" for coord in hole_coords}
+
+def is_valid(board, max_size, start=(0, 0)) -> bool:
+    frontier, discovered = [], set()
+    if board[start[0], start[1]] != "S": return False
+    frontier.append(start)
+    while frontier:
+        r, c = frontier.pop()
+        if not (r, c) in discovered:
+            discovered.add((r, c))
+            directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+            for x, y in directions:
+                r_new = r + x
+                c_new = c + y
+                if r_new < 0 or r_new >= max_size or c_new < 0 or c_new >= max_size:
+                    continue
+                if board[r_new][c_new] == "G":
+                    return True
+                if board[r_new][c_new] != "H":
+                    frontier.append((r_new, c_new))
+    return False
+
+
+def generate_random_map(
+    size = 8, p = 0.8, seed = None,
+    p_start = None, p_goal = None,
+):
+    """Generates a random valid map (one that has a path from start to goal)
+    Args:
+        size: size of each side of the grid
+        p: probability that a tile is frozen
+        seed: optional seed to ensure the generation of reproducible maps
+    Returns:
+        A random valid map
+    """
+    valid = False
+    board = []
+
+    np_random, _ = seeding.np_random(seed)
+
+    while not valid:
+        p = min(1, p)
+        board = np_random.choice(["F", "H"], (size, size), p=[p, 1 - p])
+        
+        s_coord = (0, 0)
+        if p_start == "uniform":
+            i = np.random.choice(np.arange(board.size))
+            s_coord = np.unravel_index(i, board.shape)
+        elif isinstance(p_start, np.ndarray):
+            i = np.random.choice(np.arange(p_start.size), p=p_start.ravel())
+            s_coord = np.unravel_index(i, p_start.shape)
+        board[s_coord[0]][s_coord[1]] = "S"
+        
+        g_coord = (size - 1, size - 1)
+        if p_goal == "uniform":
+            i = np.random.choice(np.arange(board.size))
+            s_coord = np.unravel_index(i, board.shape)
+        elif isinstance(p_goal, np.ndarray):
+            i = np.random.choice(np.arange(p_goal.size), p=p_goal.ravel())
+            g_coord = np.unravel_index(i, p_goal.shape)
+        board[g_coord[0]][g_coord[1]] = "G"
+
+        valid = is_valid(board, size, start=s_coord)
+    return ["".join(x) for x in board]

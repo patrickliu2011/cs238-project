@@ -76,13 +76,20 @@ def main(args):
         "schedule": args.guide_schedule,
     }
 
-    custom_env = CustomFrozenLakeEnv(env_kwargs, env_data_kwargs, state_type=state_type, obscure_type=obscure_type)
+    custom_env_kwargs = {
+        "env_kwargs": env_kwargs, 
+        "env_data_kwargs": env_data_kwargs, 
+        "state_type": state_type, 
+        "obscure_type": obscure_type,
+        "guide_kwargs": guide_kwargs,
+    }
+    custom_env = CustomFrozenLakeEnv(**custom_env_kwargs)
     check_env(custom_env, warn=True, skip_render_check=True)
 
     vec_env = make_vec_env(
         "CustomFrozenLake-v1", 
         n_envs=args.num_envs, 
-        env_kwargs={"env_kwargs": env_kwargs, "env_data_kwargs": env_data_kwargs, "state_type": state_type, "obscure_type": obscure_type}
+        env_kwargs=custom_env_kwargs
     )
 
     model_kwargs = {}
@@ -111,12 +118,11 @@ def main(args):
     del model
 
     model = algo.load(ckpt_path)
-    env_kwargs_copy = env_kwargs.copy()
-    env_kwargs_copy["show"] = True
+    custom_env_kwargs["env_kwargs"]["show"] = True
     vec_env = make_vec_env(
         "CustomFrozenLake-v1", 
         n_envs=1, 
-        env_kwargs={"env_kwargs": env_kwargs_copy, "env_data_kwargs": env_data_kwargs, "state_type": state_type}
+        env_kwargs=custom_env_kwargs,
     )
 
     if args.policy.endswith("lstm"):

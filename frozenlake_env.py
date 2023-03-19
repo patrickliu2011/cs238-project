@@ -79,6 +79,8 @@ class CustomFrozenLakeEnv(gym.Env):
         elif self._guide_kwargs["type"] == "vi": #value iteration
             optimal_v = iter_utils.value_iteration(self._env, self._guide_kwargs.get("gamma", 0.9))
             self._optimal_policy = iter_utils.extract_policy(self._env, optimal_v)
+            # print("V:", optimal_v.reshape((self._env_data["nrows"], self._env_data["ncols"], -1)))
+            # print("P:", self._optimal_policy.reshape((self._env_data["nrows"], self._env_data["ncols"], -1)))
         else:
             raise NotImplementedError("Invalid guide type")
         
@@ -122,7 +124,7 @@ class CustomFrozenLakeEnv(gym.Env):
             suggestion = suggestion if self._t > 30 else 0
         else:
             raise NotImplementedError("Invalid guide schedule type")
-        return suggestion
+        return int(suggestion)
 
     def step(self, action):
         observation, reward, terminated, truncated, info = self._env.step(action)

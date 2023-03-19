@@ -37,7 +37,7 @@ def evaluate_policy(env, policy, gamma = 1.0,  n = 100):
             for _ in range(n)]
     return np.mean(scores)
 
-def extract_policy(V, gamma = 1.0):
+def extract_policy(env, V, gamma = 1.0):
     """ Extract the policy given a value-function """
     sh = np.prod(env.env.unwrapped.desc.astype(str).shape)
     policy = np.zeros(sh)
@@ -61,9 +61,9 @@ def value_iteration(env, gamma = 1.0):
             q_sa = [sum([p*(r + gamma * prev_v[s_]) for p, s_, r, _ in env.P[s][a]]) for a in range(env.action_space.n)]
             V[s] = max(q_sa)
         if (np.sum(np.fabs(prev_v - V)) <= eps):
-            print ('Value-iteration converged at iteration# %d.' %(i+1))
+            # print ('Value-iteration converged at iteration# %d.' %(i+1))
             break
-        print(V.reshape(4,4))
+        # print(V.reshape(4,4))
     return V
 
 def compute_policy_v(env, policy, gamma=1.0):

@@ -68,7 +68,7 @@ class CustomFrozenLakeEnv(gym.Env):
         if self._obscure_type is None:
             return observation_map
         elif self._obscure_type == "neighbor":
-            return observation_map[0] * self._observed[..., None]
+            return observation_map * self._observed[..., None]
         else:
             raise NotImplementedError("Invalid obscure type")
         

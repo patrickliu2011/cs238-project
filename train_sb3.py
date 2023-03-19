@@ -34,6 +34,9 @@ POLICIES = {
     "mlp": "MlpPolicy",
     "cnn": "CnnPolicy",
     "multi": "MultiInputPolicy",
+    "mlplstm": "MlpLstmPolicy",
+    "cnnlstm": "CnnLstmPolicy",
+    "multilstm": "MultiInputLstmPolicy",
 }
 
 def main(args):

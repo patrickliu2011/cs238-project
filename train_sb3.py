@@ -31,7 +31,7 @@ ALGOS = {
 POLICIES = {
     "mlp": "MlpPolicy",
     "cnn": "CnnPolicy",
-    "multiinput": "MultiInputPolicy",
+    "multi": "MultiInputPolicy",
 }
 
 def main(args):
@@ -65,6 +65,10 @@ def main(args):
         env_data_kwargs["overrides"] = fl.get_overrides(env_data, args.ratio_hide)
     state_type = args.state_type
     obscure_type = args.obscure_type
+
+    guide_kwargs = {
+        "type": args.guide_type,
+    }
 
     custom_env = CustomFrozenLakeEnv(env_kwargs, env_data_kwargs, state_type=state_type, obscure_type=obscure_type)
     check_env(custom_env, warn=True, skip_render_check=True)
@@ -138,6 +142,10 @@ if __name__ == "__main__":
     parser.add_argument("--obscure-type", type=str, default=None,
                         help="Type of obscuring to use.")
     
+    # Guide arguments
+    parser.add_argument("--guide-type", type=str, default=None,
+                        help="Type of guide to use. Defaults to None.")
+    
     # Training/eval arguments
     parser.add_argument("--train-timesteps", type=int, default=25_000,
                         help="Number of timesteps to train for.")
@@ -149,8 +157,8 @@ if __name__ == "__main__":
     # Model arguments
     parser.add_argument("--algo", type=str, default="ppo", choices=ALGOS.keys(),
                         help="SB3 RL algorithm to use (ppo, dqn, etc.)")
-    parser.add_argument("--policy", type=str, default="mlp", choices=POLICIES.keys(),
-                        help="SB3 policy type (mlp, cnn, etc.)")
+    parser.add_argument("--policy", type=str, default="multi", choices=POLICIES.keys(),
+                        help="SB3 policy type (mlp, cnn, multi)")
     parser.add_argument("--batch-size", type=int, default=None, # 128,
                         help="Batch size for training")
     parser.add_argument("--gamma", type=float, default=None, # 0.99,

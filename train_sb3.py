@@ -4,9 +4,11 @@ from itertools import count
 from argparse import ArgumentParser
 
 import gymnasium as gym
-import stable_baselines3
+import stable_baselines3 as sb3
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.env_checker import check_env
+from stable_baselines3.common.logger import configure
+from stable_baselines3.common.evaluation import evaluate_policy
 import sb3_contrib
 
 import frozenlake_utils as fl
@@ -14,12 +16,12 @@ from frozenlake_env import CustomFrozenLakeEnv
 
 # TODO: SB3_contrib algos may not run properly with current code
 ALGOS = {
-    "a2c": stable_baselines3.A2C,
-    "dqn": stable_baselines3.DQN,
-    "her": stable_baselines3.HER,
-    "ppo": stable_baselines3.PPO,
-    "sac": stable_baselines3.SAC,
-    "td3": stable_baselines3.TD3,
+    "a2c": sb3.A2C,
+    "dqn": sb3.DQN,
+    "her": sb3.HER,
+    "ppo": sb3.PPO,
+    "sac": sb3.SAC,
+    "td3": sb3.TD3,
     "ars": sb3_contrib.ARS,
     "maskableppo": sb3_contrib.MaskablePPO,
     "recurrentppo": sb3_contrib.RecurrentPPO, 
@@ -42,7 +44,6 @@ def main(args):
         max_episode_steps=args.max_episode_steps,
     )
 
-    from stable_baselines3.common.logger import configure
     log_path = os.path.join(args.log_dir, args.exp_name)
     new_logger = configure(log_path, ["stdout", "csv", "tensorboard"])
 
@@ -97,6 +98,11 @@ def main(args):
     model.learn(total_timesteps=args.train_timesteps, progress_bar=True)
     model.save(ckpt_path)
 
+    if args.eval_episodes > 0:
+        mean_reward, std_reward = evaluate_policy(model, vec_env, n_eval_episodes=args.eval_episodes)
+        print("mean_reward:", mean_reward)
+        print("std_reward:", std_reward)
+
     del model
 
     model = algo.load(ckpt_path)
@@ -107,6 +113,7 @@ def main(args):
         n_envs=1, 
         env_kwargs={"env_kwargs": env_kwargs_copy, "env_data_kwargs": env_data_kwargs, "state_type": state_type}
     )
+
     for i_episode in range(args.show_episodes):
         obs = vec_env.reset()
         for i in count():
@@ -133,7 +140,7 @@ if __name__ == "__main__":
                         help="Randomize goal position")
     parser.add_argument("--max-episode-steps", type=int, default=100,
                         help="Maximum number of steps per episode")
-    parser.add_argument("--reward-overrides", type=str, nargs="*", default=["H:-1", "F:-0.01", "G:10", "S:-0.01"],
+    parser.add_argument("--reward-overrides", type=str, nargs="*", default=["H:-1", "F:0", "G:1", "S:0"],
                         help="List of tile types to override rewards for, formatted as \"H:-1 F:-0.01\"")
     parser.add_argument("--ratio-hide", type=float, default=0,
                         help="Ratio of holes to hide")
@@ -149,6 +156,8 @@ if __name__ == "__main__":
     # Training/eval arguments
     parser.add_argument("--train-timesteps", type=int, default=25_000,
                         help="Number of timesteps to train for.")
+    parser.add_argument("--eval-episodes", type=int, default=1000,
+                        help="Number of episodes to evaluate for.")
     parser.add_argument("--show-episodes", type=int, default=20,
                         help="Number of episodes to display for.")
     parser.add_argument("--num-envs", type=int, default=4,

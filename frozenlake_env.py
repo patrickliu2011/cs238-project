@@ -1,6 +1,6 @@
 import numpy as np
-import gymnasium.spaces as spaces
-import gymnasium as gym
+import gym.spaces as spaces
+import gym
 import copy
 
 import frozenlake_utils as fl
@@ -92,8 +92,6 @@ class CustomFrozenLakeEnv(gym.Env):
 
     def _get_suggestion(self, observation_map):
         if self._guide_kwargs is None or self._guide_kwargs["type"] is None:
-            suggestion = np.zeros(self._suggestion_dim, dtype=np.uint8)
-            suggestion[0] = 1
             return 0
         elif self._guide_kwargs["type"] == "vi":
             return self._suggestion + 1
@@ -114,8 +112,8 @@ class CustomFrozenLakeEnv(gym.Env):
         observation = {"map": obs_map, "suggestion": suggestion}
         done = terminated or truncated
         self.done = done
-        return observation, reward, terminated, truncated, info
-        # return observation, reward, done, info
+        # return observation, reward, terminated, truncated info
+        return observation, reward, done, info
 
     def reset(self):
         self._env = fl.get_env(**self._env_kwargs)
@@ -134,7 +132,7 @@ class CustomFrozenLakeEnv(gym.Env):
 
         observation = {"map": obs_map, "suggestion": suggestion}
         self.done = False
-        return observation, info  # reward, done, info can't be included
+        return observation  # reward, done, info can't be included
 
     def render(self, mode='human'):
         if not self.done:

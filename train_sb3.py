@@ -4,6 +4,8 @@ from itertools import count
 from argparse import ArgumentParser
 
 import gymnasium as gym
+from gym.envs.registration import register
+
 import stable_baselines3 as sb3
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.env_checker import check_env
@@ -40,7 +42,6 @@ POLICIES = {
 }
 
 def main(args):
-    from gym.envs.registration import register
     register(
         id="CustomFrozenLake-v1",
         entry_point=CustomFrozenLakeEnv,
@@ -117,14 +118,27 @@ def main(args):
         env_kwargs={"env_kwargs": env_kwargs_copy, "env_data_kwargs": env_data_kwargs, "state_type": state_type}
     )
 
-    for i_episode in range(args.show_episodes):
-        obs = vec_env.reset()
-        for i in count():
-            vec_env.render()
-            action, _states = model.predict(obs)
-            obs, rewards, dones, info = vec_env.step(action)
-            if dones:
-                break
+    if args.policy.endswith("lstm"):
+        for i_episode in range(args.show_episodes):
+            obs = vec_env.reset()
+            lstm_states = None
+            episode_starts = np.ones(1, dtype=bool)
+            for i in count():
+                vec_env.render()
+                action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_starts)
+                obs, rewards, dones, info = vec_env.step(action)
+                episode_starts = dones
+                if dones:
+                    break
+    else:
+        for i_episode in range(args.show_episodes):
+            obs = vec_env.reset()
+            for i in count():
+                vec_env.render()
+                action, _states = model.predict(obs)
+                obs, rewards, dones, info = vec_env.step(action)
+                if dones:
+                    break
 
 
 if __name__ == "__main__":

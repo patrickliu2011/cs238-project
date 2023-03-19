@@ -73,6 +73,7 @@ def main(args):
 
     guide_kwargs = {
         "type": args.guide_type,
+        "schedule": args.guide_schedule,
     }
 
     custom_env = CustomFrozenLakeEnv(env_kwargs, env_data_kwargs, state_type=state_type, obscure_type=obscure_type)
@@ -169,6 +170,8 @@ if __name__ == "__main__":
     # Guide arguments
     parser.add_argument("--guide-type", type=str, default=None,
                         help="Type of guide to use. Defaults to None.")
+    parser.add_argument("--guide-schedule", type=str, default="always",
+                        help="When to receive guide suggestion. Defaults to \"always\".")
     
     # Training/eval arguments
     parser.add_argument("--train-timesteps", type=int, default=25_000,

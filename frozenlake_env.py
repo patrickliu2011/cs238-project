@@ -75,28 +75,54 @@ class CustomFrozenLakeEnv(gym.Env):
 
     def _reset_suggestion(self):
         if self._guide_kwargs is None or self._guide_kwargs["type"] is None:
-            pass
+            return
         elif self._guide_kwargs["type"] == "vi": #value iteration
             optimal_v = iter_utils.value_iteration(self._env, self._guide_kwargs.get("gamma", 0.9))
             self._optimal_policy = iter_utils.extract_policy(self._env, optimal_v)
         else:
             raise NotImplementedError("Invalid guide type")
+        
+        if self._guide_kwargs["schedule"] in ["always", "never", "random"]:
+            pass
+        elif self._guide_kwargs["schedule"] == "time":
+            self._t = 0
+        else:
+            raise NotImplementedError("Invalid guide schedule type")
 
     def _update_suggestion(self, observation_map):
         if self._guide_kwargs is None or self._guide_kwargs["type"] is None:
-            pass
+            return
         elif self._guide_kwargs["type"] == "vi":
-            self._suggestion = self._optimal_policy[self._env.unwrapped.s]
+            pass
         else:
             raise NotImplementedError("Invalid guide type")
+        
+        if self._guide_kwargs["schedule"] in ["always", "never", "random"]:
+            pass
+        elif self._guide_kwargs["schedule"] == "time":
+            self._t += 1
+        else:
+            raise NotImplementedError("Invalid guide schedule type")
 
     def _get_suggestion(self, observation_map):
         if self._guide_kwargs is None or self._guide_kwargs["type"] is None:
             return 0
         elif self._guide_kwargs["type"] == "vi":
-            return self._suggestion + 1
+            suggestion = self._optimal_policy[self._env.unwrapped.s] + 1
         else:
             raise NotImplementedError("Invalid guide type")
+        
+        if self._guide_kwargs["schedule"] == "always":
+            pass
+        elif self._guide_kwargs["schedule"] == "random":
+            suggestion = np.random.choice([suggestion, 0])
+        elif self._guide_kwargs["schedule"] == "never":
+            suggestion = 0
+        elif self._guide_kwargs["schedule"] == "time":
+            suggestion = suggestion if self._t > 30 else 0
+        else:
+            raise NotImplementedError("Invalid guide schedule type")
+        return suggestion
 
     def step(self, action):
         observation, reward, terminated, truncated, info = self._env.step(action)

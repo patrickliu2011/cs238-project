@@ -147,10 +147,12 @@ class CustomFrozenLakeEnv(gym.Env):
                 for coord, tile in self._overrides.items():
                     tile_id = self._env_data["tile_type_ids"][tile]
                     if self._obscure_type != "neighbor" or self._observed[coord]:
-                        observation_map_copy[coord] = tile_id
-                action, _states = self._guide.predict(observation_map_copy)
+                        observation_map_copy[coord] = 0
+                        observation_map_copy[coord][tile_id] = 1
+                obs = {"map": observation_map_copy, "suggestion": 0}
             else:
-                action, _states = self._guide.predict(observation_map)
+                obs = {"map": observation_map, "suggestion": 0}
+            action, _states = self._guide.predict(obs)
             suggestion = action + 1
         return int(suggestion)
 

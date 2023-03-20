@@ -45,12 +45,9 @@ class CustomFrozenLakeEnv(gym.Env):
         })
 
         self.done = False
-        self._reset_obscuration()
-
         if self._guide_kwargs["type"] in ALGOS:
             algo = ALGOS[self._guide_kwargs["type"]]
             self._guide = algo.load(self._guide_kwargs["ckpt"])
-        self._reset_suggestion()
 
     def _reset_obscuration(self):
         if self._obscure_type is None:
@@ -70,16 +67,12 @@ class CustomFrozenLakeEnv(gym.Env):
                 if not all(0 <= c < s for c, s in zip(coord, self._observed.shape)):
                     continue
                 self._observed[coord] = True
-        else:
-            raise NotImplementedError("Invalid obscure type")
 
     def _get_obscured_obs_map(self, observation_map):
         if self._obscure_type is None:
             return observation_map
         elif self._obscure_type == "neighbor":
             return observation_map * self._observed[..., None]
-        else:
-            raise NotImplementedError("Invalid obscure type")
 
     def _reset_suggestion(self):
         if self._guide_kwargs is None or self._guide_kwargs["type"] is None:
@@ -98,6 +91,20 @@ class CustomFrozenLakeEnv(gym.Env):
             pass
         elif self._guide_kwargs["schedule"] == "time":
             self._t = 0
+        elif self._guide_kwargs["schedule"] in ["hole", "hidden_hole"]:
+            self._hole_neighbors = set()
+            if self._guide_kwargs["schedule"] == "hole":
+                hole_id = self._env_data["tile_type_ids"]["H"]
+                hole_locs = self._env_data["tile_locations"][hole_id] if self._env_data["nholes"] > 0 else []
+            else:
+                assert self._env_data_kwargs.get("ratio_hide", 0) > 0, "hidden_hole schedule requires ratio_hide>0"
+                hole_locs = self._overrides.keys()
+            for x, y in hole_locs:
+                for i, j in np.ndindex((3, 3)):
+                    coord = (int(x + i - 1), int(y + j - 1))
+                    if not all(0 <= c < s for c, s in zip(coord, self._env_data["map"].shape)):
+                        continue
+                    self._hole_neighbors.add(fl.coord2pos(coord, self._env_data))
         else:
             raise NotImplementedError("Invalid guide schedule type")
 
@@ -108,15 +115,11 @@ class CustomFrozenLakeEnv(gym.Env):
             pass
         elif self._guide_kwargs["type"] in ALGOS:
             pass
-        else:
-            raise NotImplementedError("Invalid guide type")
         
         if self._guide_kwargs["schedule"] in ["always", "never", "random"]:
             pass
         elif self._guide_kwargs["schedule"] == "time":
             self._t += 1
-        else:
-            raise NotImplementedError("Invalid guide schedule type")
 
     def _get_suggestion(self, observation_map):
         use_suggestion = False
@@ -128,8 +131,8 @@ class CustomFrozenLakeEnv(gym.Env):
             use_suggestion = False
         elif self._guide_kwargs["schedule"] == "time":
             use_suggestion = (self._t > 30)
-        else:
-            raise NotImplementedError("Invalid guide schedule type")
+        elif self._guide_kwargs["schedule"] in ["hole", "hidden_hole"]:
+            use_suggestion = self._env.unwrapped.s in self._hole_neighbors
         
         suggestion = 0
         if not use_suggestion:
@@ -149,8 +152,6 @@ class CustomFrozenLakeEnv(gym.Env):
             else:
                 action, _states = self._guide.predict(observation_map)
             suggestion = action + 1
-        else:
-            raise NotImplementedError("Invalid guide type")
         return int(suggestion)
 
     def step(self, action):

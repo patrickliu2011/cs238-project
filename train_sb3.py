@@ -54,9 +54,9 @@ def main(args):
     }
 
     custom_env_kwargs = {
-        "env_kwargs": env_kwargs, 
-        "env_data_kwargs": env_data_kwargs, 
-        "state_type": state_type, 
+        "env_kwargs": env_kwargs,
+        "env_data_kwargs": env_data_kwargs,
+        "state_type": state_type,
         "obscure_type": obscure_type,
         "guide_kwargs": guide_kwargs,
     }
@@ -64,8 +64,8 @@ def main(args):
     check_env(custom_env, warn=True, skip_render_check=True)
 
     vec_env = make_vec_env(
-        "CustomFrozenLake-v1", 
-        n_envs=args.num_envs, 
+        "CustomFrozenLake-v1",
+        n_envs=args.num_envs,
         env_kwargs=custom_env_kwargs
     )
 
@@ -75,7 +75,7 @@ def main(args):
             model_kwargs[var] = getattr(args, var)
     if args.net_arch is not None:
         model_kwargs["policy_kwargs"] = {"net_arch": args.net_arch}
-    
+
     ckpt_path = os.path.join(args.ckpt_dir, args.exp_name)
     algo = ALGOS[args.algo]
     policy = POLICIES[args.policy]
@@ -99,13 +99,24 @@ def main(args):
         print("success_rate:", np.mean(np.array(rewards) > 0))
         print("fail_rate:", np.mean(np.array(rewards) < -0.1))
 
+        results_path = os.path.join(args.results_dir, args.exp_name) + ".txt"
+        os.makedirs(args.results_dir, exist_ok=True)
+        with open(results_path, "w") as f:
+            print("mean_reward:", np.mean(rewards), file=f)
+            print("std_reward:", np.std(rewards), file=f)
+
+            print("mean_duration:", np.mean(lengths), file=f)
+            print("std_duration:", np.std(lengths), file=f)
+
+            print("success_rate:", np.mean(np.array(rewards) > 0), file=f)
+            print("fail_rate:", np.mean(np.array(rewards) < -0.1), file=f)
     del model
 
     model = algo.load(ckpt_path)
     custom_env_kwargs["env_kwargs"]["show"] = True
     vec_env = make_vec_env(
-        "CustomFrozenLake-v1", 
-        n_envs=1, 
+        "CustomFrozenLake-v1",
+        n_envs=1,
         env_kwargs=custom_env_kwargs,
     )
 
@@ -136,9 +147,9 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Train Stable Baselines3 model on FrozenLake environment.")
     parser.add_argument("--exp-name", type=str, default="ppo_frozenlake",
                         help="Name of experiment.")
-    
+
     # Environment arguments
-    parser.add_argument("--size", type=int, default=4, 
+    parser.add_argument("--size", type=int, default=4,
                         help="Size of environment")
     parser.add_argument("--slip", action="store_true",
                         help="Enable slipping in the environment")
@@ -156,7 +167,7 @@ if __name__ == "__main__":
                         help="Type of state representation to use. Currently only supports \"embedded_map\"")
     parser.add_argument("--obscure-type", type=str, default=None,
                         help="Type of obscuring to use.")
-    
+
     # Guide arguments
     parser.add_argument("--guide-type", type=str, default=None,
                         help="Type of guide to use. Defaults to None.")
@@ -164,7 +175,7 @@ if __name__ == "__main__":
                         help="When to receive guide suggestion. Defaults to \"always\".")
     parser.add_argument("--guide-ckpt", type=str, default=None,
                         help="SB3 guide checkpoint path")
-    
+
     # Training/eval arguments
     parser.add_argument("--train-timesteps", type=int, default=25_000,
                         help="Number of timesteps to train for.")
@@ -196,6 +207,8 @@ if __name__ == "__main__":
                         help="Directory to save checkpoints to.")
     parser.add_argument("--init-ckpt", type=str, default=None,
                         help="Path to initial checkpoint to load from. If not specified, will start from scratch.")
+    parser.add_argument("--results-dir", type=str, default="sb3_results",
+                        help="Directory to save results to.")
 
     args = parser.parse_args()
     reward_overrides = {}

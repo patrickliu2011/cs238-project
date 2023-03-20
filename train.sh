@@ -3,7 +3,7 @@
 SIZE=4
 ALGO=ppo
 NET_ARCH="64 64 64"
-TIMESTEPS=1000
+TIMESTEPS=1000000
 GAMMA=0.95
 EXP_NAME=${ALGO}_${SIZE}_arch=${NET_ARCH// /-}
 
@@ -22,7 +22,9 @@ cmd=(
 # cmd+=(--ratio-hide 0.5)
 # EXP_NAME+=_hide=0.5
 
-# Guide options: uncomment to use
+# GUIDE AGENT OPTIONS
+
+# Guide schedule: always, random, time, hole, hidden_hole
 # GUIDE_TYPE=vi
 # GUIDE_SCHEDULE=always
 # cmd+=(--guide-type $GUIDE_TYPE)
@@ -43,8 +45,14 @@ cmd=(
 # Uncomment this line to resume training from a checkpoint
 # NOTE: Make a modification to the name if you run different initializations
 # INIT_EXP=ppo_4_arch=64-64-64
-# --init-ckpt sb3_ckpt/$INIT_EXP
-# EXP_NAME+=_init=$INIT_EXP
+# cmd+=(--init-ckpt sb3_ckpt/$INIT_EXP)
+# EXP_NAME+=_init
+
+# Uncomment this line to resume training from a checkpoint
+# NOTE: Make a modification to the name if you run different initializations
+# INIT_EXP=ppo_4_arch=64-64-64_hide=0.5
+# cmd+=(--init-ckpt sb3_ckpt/$INIT_EXP)
+# EXP_NAME+=_init=hide
 
 cmd+=(--exp-name $EXP_NAME)
 

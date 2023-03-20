@@ -1,19 +1,21 @@
 #!/usr/bin/bash
 
-SIZE=5
+SIZE=4
 ALGO=ppo
-TIMESTEPS=1000000
 NET_ARCH="64 64 64"
+TIMESTEPS=1000000
+GAMMA=0.95
 EXP_NAME=${ALGO}_${SIZE}_arch=${NET_ARCH// /-}
 
 cmd=(
     python train_sb3.py
     --size $SIZE
     --algo $ALGO
+    --net-arch ${NET_ARCH[@]}
+    --gamma $GAMMA
     --train-timesteps $TIMESTEPS
     --random-start-pos --random-goal-pos
     --obscure-type neighbor
-    --net-arch ${NET_ARCH[@]}
 )
 
 # Uncomment this line to train an agent with hidden holes
@@ -28,11 +30,11 @@ cmd=(
 # EXP_NAME+=_guide=${GUIDE_TYPE}_${GUIDE_SCHEDULE}
 
 # Uncomment this line to resume training from a checkpoint
-# --init-ckpt sb3_ckpt/$EXP_NAME
+# cmd+=(--init-ckpt sb3_ckpt/$EXP_NAME)
 
 # Uncomment this line to resume training from a checkpoint
 # NOTE: Make a modification to the name if you run different initializations
-# INIT_EXP=ppo_5
+# INIT_EXP=ppo_4_arch=64-64-64
 # --init-ckpt sb3_ckpt/$INIT_EXP
 # EXP_NAME+=_init=$INIT_EXP
 
@@ -44,4 +46,4 @@ printf "%q " "${cmd[@]}"
 echo
 
 # Execute the command:
-"${cmd[@]}" 
+"${cmd[@]}"

@@ -18,6 +18,8 @@ class CustomFrozenLakeEnv(gym.Env):
         super(CustomFrozenLakeEnv, self).__init__()
         self._env_kwargs = env_kwargs
         self._env_data_kwargs = env_data_kwargs
+        if "overrides" in self._env_data_kwargs:
+            del self._env_data_kwargs["overrides"]
         self._guide_kwargs = guide_kwargs
         self._state_type = state_type
         assert self._state_type in self.STATE_TYPES, "Invalid state type"
@@ -146,6 +148,10 @@ class CustomFrozenLakeEnv(gym.Env):
     def reset(self):
         self._env = fl.get_env(**self._env_kwargs)
         self._env_data = fl.get_env_data(self._env, **self._env_data_kwargs)
+        if self._env_data_kwargs.get("ratio_hide", 0) > 0:
+            self._overrides = fl.get_overrides(self._env_data, self._env_data_kwargs["ratio_hide"])
+            self._env_data = fl.get_env_data(self._env, **self._env_data_kwargs, overrides=self._overrides)
+
         observation, info = self._env.reset()
         obs_map = fl.state_to_observation(observation, self._env_data, mode=self._state_type)
         obs_map = obs_map.astype(np.uint8).reshape(self._obs_map_shape)

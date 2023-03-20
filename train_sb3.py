@@ -62,7 +62,8 @@ def main(args):
     }
     tile_types = ["F", "H", "G", "S"]
     env_data_kwargs = {
-        "tile_types": tile_types
+        "tile_types": tile_types,
+        "ratio_hide": args.ratio_hide,
     }
     if args.ratio_hide > 0:
         env = fl.get_env(**env_kwargs)

@@ -6,6 +6,8 @@ import copy
 import frozenlake_utils as fl
 import iter_utils
 
+from constants import ALGOS, POLICIES
+
 class CustomFrozenLakeEnv(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human', 'rgb_array']}
@@ -44,6 +46,10 @@ class CustomFrozenLakeEnv(gym.Env):
 
         self.done = False
         self._reset_obscuration()
+
+        if self._guide_kwargs["type"] in ALGOS:
+            algo = ALGOS[self._guide_kwargs["type"]]
+            self._guide = algo.load(self._guide_kwargs["ckpt"])
         self._reset_suggestion()
 
     def _reset_obscuration(self):
@@ -83,6 +89,8 @@ class CustomFrozenLakeEnv(gym.Env):
             self._optimal_policy = iter_utils.extract_policy(self._env, optimal_v)
             # print("V:", optimal_v.reshape((self._env_data["nrows"], self._env_data["ncols"], -1)))
             # print("P:", self._optimal_policy.reshape((self._env_data["nrows"], self._env_data["ncols"], -1)))
+        elif self._guide_kwargs["type"] in ALGOS:
+            pass
         else:
             raise NotImplementedError("Invalid guide type")
         
@@ -98,6 +106,8 @@ class CustomFrozenLakeEnv(gym.Env):
             return
         elif self._guide_kwargs["type"] == "vi":
             pass
+        elif self._guide_kwargs["type"] in ALGOS:
+            pass
         else:
             raise NotImplementedError("Invalid guide type")
         
@@ -109,23 +119,27 @@ class CustomFrozenLakeEnv(gym.Env):
             raise NotImplementedError("Invalid guide schedule type")
 
     def _get_suggestion(self, observation_map):
-        if self._guide_kwargs is None or self._guide_kwargs["type"] is None:
-            return 0
-        elif self._guide_kwargs["type"] == "vi":
-            suggestion = self._optimal_policy[self._env.unwrapped.s] + 1
-        else:
-            raise NotImplementedError("Invalid guide type")
-        
+        use_suggestion = False
         if self._guide_kwargs["schedule"] == "always":
             pass
         elif self._guide_kwargs["schedule"] == "random":
-            suggestion = np.random.choice([suggestion, 0])
+            use_suggestion = np.random.choice([True, False])
         elif self._guide_kwargs["schedule"] == "never":
-            suggestion = 0
+            use_suggestion = False
         elif self._guide_kwargs["schedule"] == "time":
-            suggestion = suggestion if self._t > 30 else 0
+            use_suggestion = (self._t > 30)
         else:
             raise NotImplementedError("Invalid guide schedule type")
+        
+        if self._guide_kwargs is None or self._guide_kwargs["type"] is None or not use_suggestion:
+            return 0
+        elif self._guide_kwargs["type"] == "vi":
+            suggestion = self._optimal_policy[self._env.unwrapped.s] + 1
+        elif self._guide_kwargs["type"] in ALGOS:
+            action, _states = self._guide.predict(observation_map)
+            suggestion = action + 1
+        else:
+            raise NotImplementedError("Invalid guide type")
         return int(suggestion)
 
     def step(self, action):

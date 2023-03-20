@@ -3,7 +3,7 @@
 SIZE=4
 ALGO=ppo
 NET_ARCH="64 64 64"
-TIMESTEPS=1000000
+TIMESTEPS=1000
 GAMMA=0.95
 EXP_NAME=${ALGO}_${SIZE}_arch=${NET_ARCH// /-}
 
@@ -27,6 +27,14 @@ cmd=(
 # GUIDE_SCHEDULE=always
 # cmd+=(--guide-type $GUIDE_TYPE)
 # cmd+=(--guide-schedule $GUIDE_SCHEDULE)
+# EXP_NAME+=_guide=${GUIDE_TYPE}_${GUIDE_SCHEDULE}
+
+# GUIDE_TYPE=ppo
+# GUIDE_SCHEDULE=always
+# GUIDE_CKPT=sb3_ckpt/ppo_4_arch=64-64-64
+# cmd+=(--guide-type $GUIDE_TYPE)
+# cmd+=(--guide-schedule $GUIDE_SCHEDULE)
+# cmd+=(--guide-ckpt $GUIDE_CKPT)
 # EXP_NAME+=_guide=${GUIDE_TYPE}_${GUIDE_SCHEDULE}
 
 # Uncomment this line to resume training from a checkpoint

@@ -11,35 +11,10 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.evaluation import evaluate_policy
-import sb3_contrib
 
 import frozenlake_utils as fl
 from frozenlake_env import CustomFrozenLakeEnv
-
-# TODO: SB3_contrib algos may not run properly with current code
-ALGOS = {
-    "a2c": sb3.A2C,
-    "dqn": sb3.DQN,
-    "her": sb3.HER,
-    "ppo": sb3.PPO,
-    "sac": sb3.SAC,
-    "td3": sb3.TD3,
-    "ars": sb3_contrib.ARS,
-    "maskableppo": sb3_contrib.MaskablePPO,
-    "recurrentppo": sb3_contrib.RecurrentPPO, 
-    "qrdqn": sb3_contrib.QRDQN,
-    "tqc": sb3_contrib.TQC,
-    "trpo": sb3_contrib.TRPO,
-}
-
-POLICIES = {
-    "mlp": "MlpPolicy",
-    "cnn": "CnnPolicy",
-    "multi": "MultiInputPolicy",
-    "mlplstm": "MlpLstmPolicy",
-    "cnnlstm": "CnnLstmPolicy",
-    "multilstm": "MultiInputLstmPolicy",
-}
+from constants import ALGOS, POLICIES
 
 def main(args):
     register(
@@ -75,6 +50,7 @@ def main(args):
     guide_kwargs = {
         "type": args.guide_type,
         "schedule": args.guide_schedule,
+        "ckpt": args.guide_ckpt,
     }
 
     custom_env_kwargs = {
@@ -112,9 +88,15 @@ def main(args):
     model.save(ckpt_path)
 
     if args.eval_episodes > 0:
-        mean_reward, std_reward = evaluate_policy(model, vec_env, n_eval_episodes=args.eval_episodes)
-        print("mean_reward:", mean_reward)
-        print("std_reward:", std_reward)
+        rewards, lengths = evaluate_policy(model, vec_env, n_eval_episodes=args.eval_episodes, return_episode_rewards=True)
+        print("mean_reward:", np.mean(rewards))
+        print("std_reward:", np.std(rewards))
+
+        print("mean_duration:", np.mean(lengths))
+        print("std_duration:", np.std(lengths))
+
+        print("success_rate:", np.mean(np.array(rewards) > 0))
+        print("fail_rate:", np.mean(np.array(rewards) < -0.1))
 
     del model
 
@@ -179,6 +161,8 @@ if __name__ == "__main__":
                         help="Type of guide to use. Defaults to None.")
     parser.add_argument("--guide-schedule", type=str, default="always",
                         help="When to receive guide suggestion. Defaults to \"always\".")
+    parser.add_argument("--guide-ckpt", type=str, default=None,
+                        help="SB3 guide checkpoint path")
     
     # Training/eval arguments
     parser.add_argument("--train-timesteps", type=int, default=25_000,

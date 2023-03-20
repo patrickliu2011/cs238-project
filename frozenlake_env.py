@@ -121,7 +121,7 @@ class CustomFrozenLakeEnv(gym.Env):
     def _get_suggestion(self, observation_map):
         use_suggestion = False
         if self._guide_kwargs["schedule"] == "always":
-            pass
+            use_suggestion = True
         elif self._guide_kwargs["schedule"] == "random":
             use_suggestion = np.random.choice([True, False])
         elif self._guide_kwargs["schedule"] == "never":
@@ -131,12 +131,23 @@ class CustomFrozenLakeEnv(gym.Env):
         else:
             raise NotImplementedError("Invalid guide schedule type")
         
-        if self._guide_kwargs is None or self._guide_kwargs["type"] is None or not use_suggestion:
-            return 0
+        suggestion = 0
+        if not use_suggestion:
+            pass
+        elif self._guide_kwargs is None or self._guide_kwargs["type"] is None:
+            pass
         elif self._guide_kwargs["type"] == "vi":
             suggestion = self._optimal_policy[self._env.unwrapped.s] + 1
         elif self._guide_kwargs["type"] in ALGOS:
-            action, _states = self._guide.predict(observation_map)
+            if self._env_data_kwargs.get("ratio_hide", 0) > 0:
+                observation_map_copy = observation_map.copy()
+                for coord, tile in self._overrides.items():
+                    tile_id = self._env_data["tile_type_ids"][tile]
+                    if self._obscure_type != "neighbor" or self._observed[coord]:
+                        observation_map_copy[coord] = tile_id
+                action, _states = self._guide.predict(observation_map_copy)
+            else:
+                action, _states = self._guide.predict(observation_map)
             suggestion = action + 1
         else:
             raise NotImplementedError("Invalid guide type")

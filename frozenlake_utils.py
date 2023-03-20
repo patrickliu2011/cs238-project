@@ -67,7 +67,7 @@ def get_env(size: int = 4,
     
 
 def get_env_data(env, pad_tile: tile_dtype = "B", overrides: typing.Dict = {},
-                 tile_types: typing.List[tile_dtype] = ["F", "H", "G"]):
+                 tile_types: typing.List[tile_dtype] = ["F", "H", "G"], ratio_hide: float = 0.0):
     """
     Get environment data.
 
@@ -111,7 +111,7 @@ def get_env_data(env, pad_tile: tile_dtype = "B", overrides: typing.Dict = {},
     tile_locations = {}
     for id in tile_type_ids.values():
         tile_locations[id] = list(zip(*[arr.tolist() for arr in np.where(map == id)]))
-    assert len(tile_locations[tile_type_ids["G"]]) == 1, "There should be exactly one goal tile."
+    assert len(tile_locations[tile_type_ids["G"]]) == 1, "There should be exactly one goal tile. {}".format(map)
 
     pad_tile_id = tile_type_ids[pad_tile]
     padded_map = np.pad(map, 1, mode="constant", constant_values=pad_tile_id)
@@ -127,6 +127,7 @@ def get_env_data(env, pad_tile: tile_dtype = "B", overrides: typing.Dict = {},
         "tile_locations": tile_locations,
         "tile_types": tile_types,
         "tile_type_ids": tile_type_ids,
+        "ratio_hide": ratio_hide,
     }
 
 def pos2coord(pos: int, env_data: env_dtype):
@@ -179,7 +180,7 @@ def state_to_observation(state: int, env_data: env_dtype, mode="neighbor"):
 def get_overrides(env_data: env_dtype, ratio: float):
     """Get overrides for a random proportion of holes."""
     nholes = env_data["nholes"]
-    nholes_to_remove = int(nholes * ratio)
+    nholes_to_remove = int(np.random.binomial(nholes, ratio))
     hole_ids = np.random.choice(nholes, nholes_to_remove, replace=False)
     hole_coords = [env_data["tile_locations"][env_data["tile_type_ids"]["H"]][i] for i in hole_ids]
     return {coord: "F" for coord in hole_coords}
@@ -242,6 +243,7 @@ def generate_random_map(
         elif isinstance(p_goal, np.ndarray):
             i = np.random.choice(np.arange(p_goal.size), p=p_goal.ravel())
             g_coord = np.unravel_index(i, p_goal.shape)
+        if s_coord[0] == g_coord[0] and s_coord[1] == g_coord[1]: continue
         board[g_coord[0]][g_coord[1]] = "G"
 
         valid = is_valid(board, size, start=s_coord)

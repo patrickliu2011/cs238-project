@@ -84,8 +84,9 @@ def main(args):
     else:
         model = algo(policy, vec_env, verbose=1, **model_kwargs)
     model.set_logger(new_logger)
-    model.learn(total_timesteps=args.train_timesteps, progress_bar=True)
-    model.save(ckpt_path)
+    if args.train_timesteps > 0:
+        model.learn(total_timesteps=args.train_timesteps, progress_bar=True)
+        model.save(ckpt_path)
 
     if args.eval_episodes > 0:
         rewards, lengths = evaluate_policy(model, vec_env, n_eval_episodes=args.eval_episodes, return_episode_rewards=True)
